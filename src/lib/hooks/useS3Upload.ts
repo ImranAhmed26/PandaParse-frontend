@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { uploadApi } from "@/lib/api/upload";
-import type { CompleteUploadResponse } from "@/lib/api/upload";
+import type { DocumentResponse } from "@/lib/api/upload";
 
 export interface UploadProgress {
   fileId: string;
@@ -13,7 +13,7 @@ export interface UploadProgress {
 
 export interface UseS3UploadOptions {
   workspaceId: string;
-  onUploadComplete?: (document: CompleteUploadResponse["document"]) => void;
+  onUploadComplete?: (document: DocumentResponse) => void;
   onUploadError?: (error: Error, fileName: string) => void;
   onProgressUpdate?: (progress: UploadProgress) => void;
 }
