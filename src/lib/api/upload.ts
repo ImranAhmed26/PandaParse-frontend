@@ -11,10 +11,9 @@ export interface GenerateUploadUrlRequest {
 
 export interface GenerateUploadUrlResponse {
   uploadUrl: string;
-  fileKey: string;
-  fileId: string;
-  expiresAt: string;
-  fields?: Record<string, string>; // For form data fields if using POST upload
+  key: string;
+  expiresIn: number;
+  maxFileSize: number;
 }
 
 export interface UploadToS3Request {
@@ -23,24 +22,46 @@ export interface UploadToS3Request {
   fields?: Record<string, string>;
 }
 
-export interface CompleteUploadRequest {
-  fileId: string;
-  workspaceId: string;
-  etag?: string;
+// Upload Record Types
+export interface CreateUploadRecordRequest {
+  key: string;
+  fileName: string;
+  fileType: string;
+  fileSize?: number;
+  workspaceId?: string;
 }
 
-export interface CompleteUploadResponse {
-  document: {
-    id: string;
-    filename: string;
-    originalName: string;
-    fileSize: number;
-    mimeType: string;
-    uploadedAt: string;
-    status: "uploaded" | "processing";
-    workspaceId: string;
-    uploadedBy: string;
-  };
+export interface UploadRecordResponse {
+  id: string;
+  key: string;
+  fileName: string;
+  fileType: string;
+  fileSize?: number;
+  status: "uploaded" | "processing" | "complete" | "failed";
+  uploadedAt: string;
+  userId: string;
+  workspaceId?: string;
+}
+
+// Document Types
+export interface CreateDocumentRequest {
+  uploadId: string;
+  fileName: string;
+  documentUrl: string;
+  type: "INVOICE" | "RECEIPT" | "CREDIT_NOTE" | "PURCHASE_ORDER" | "BANK_STATEMENT" | "PAYSLIP" | "CONTRACT" | "OTHER";
+  workspaceId?: string;
+}
+
+export interface DocumentResponse {
+  id: string;
+  fileName: string;
+  documentUrl: string;
+  type: string;
+  status: "UNPROCESSED" | "PROCESSED" | "PAID" | "UNPAID" | "FLAGGED";
+  uploadId?: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Upload API Functions
@@ -52,8 +73,8 @@ export const uploadApi = {
     const response = await api.post<GenerateUploadUrlResponse>("/upload/generate-url", data);
 
     console.log("🔗 [UploadAPI] Upload URL generated:", {
-      fileId: response.data.fileId,
-      expiresAt: response.data.expiresAt,
+      key: response.data.key,
+      expiresIn: response.data.expiresIn,
     });
 
     return response;
@@ -113,15 +134,29 @@ export const uploadApi = {
     }
   },
 
-  // Complete upload (notify backend)
-  completeUpload: async (data: CompleteUploadRequest): Promise<ApiResponse<CompleteUploadResponse>> => {
-    console.log("✅ [UploadAPI] Completing upload:", data);
+  // Create upload record (step 1 of completion)
+  createUploadRecord: async (data: CreateUploadRecordRequest): Promise<ApiResponse<UploadRecordResponse>> => {
+    console.log("📝 [UploadAPI] Creating upload record:", data);
 
-    const response = await api.post<CompleteUploadResponse>("/upload/complete", data);
+    const response = await api.post<UploadRecordResponse>("/upload/records", data);
 
-    console.log("✅ [UploadAPI] Upload completed:", {
-      documentId: response.data.document.id,
-      status: response.data.document.status,
+    console.log("📝 [UploadAPI] Upload record created:", {
+      uploadId: response.data.id,
+      status: response.data.status,
+    });
+
+    return response;
+  },
+
+  // Create document (step 2 of completion)
+  createDocument: async (data: CreateDocumentRequest): Promise<ApiResponse<DocumentResponse>> => {
+    console.log("📄 [UploadAPI] Creating document:", data);
+
+    const response = await api.post<DocumentResponse>("/documents", data);
+
+    console.log("📄 [UploadAPI] Document created:", {
+      documentId: response.data.id,
+      status: response.data.status,
     });
 
     return response;
@@ -132,7 +167,7 @@ export const uploadApi = {
     file: File,
     workspaceId: string,
     onProgress?: (progress: number) => void
-  ): Promise<CompleteUploadResponse["document"]> => {
+  ): Promise<DocumentResponse> => {
     try {
       // Step 1: Generate upload URL
       onProgress?.(10);
@@ -146,7 +181,7 @@ export const uploadApi = {
       // Step 2: Upload to S3 with progress tracking
       onProgress?.(20);
 
-      const { uploadUrl, fields, fileId } = urlResponse.data;
+      const { uploadUrl, key } = urlResponse.data;
 
       // Create a custom upload with progress tracking
       const uploadPromise = new Promise<{ etag?: string }>((resolve, reject) => {
@@ -174,37 +209,44 @@ export const uploadApi = {
           reject(new Error("S3 upload failed: Network error"));
         });
 
-        // Prepare request
-        if (fields) {
-          // FormData upload
-          const formData = new FormData();
-          Object.entries(fields).forEach(([key, value]) => {
-            formData.append(key, value);
-          });
-          formData.append("file", file);
-
-          xhr.open("POST", uploadUrl);
-          xhr.send(formData);
-        } else {
-          // Direct PUT upload
-          xhr.open("PUT", uploadUrl);
-          xhr.setRequestHeader("Content-Type", file.type);
-          xhr.send(file);
-        }
+        // Direct PUT upload (based on backend docs)
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+        xhr.send(file);
       });
 
-      const { etag } = await uploadPromise;
+      await uploadPromise;
 
-      // Step 3: Complete upload
-      onProgress?.(95);
-      const completeResponse = await uploadApi.completeUpload({
-        fileId,
+      // Step 3: Create upload record
+      onProgress?.(90);
+      const uploadRecordResponse = await uploadApi.createUploadRecord({
+        key,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
         workspaceId,
-        etag,
+      });
+
+      // Step 4: Create document
+      onProgress?.(95);
+
+      // Determine document type based on file type
+      const getDocumentType = (fileType: string): CreateDocumentRequest["type"] => {
+        if (fileType.includes("pdf")) return "OTHER";
+        if (fileType.includes("image")) return "RECEIPT";
+        return "OTHER";
+      };
+
+      const documentResponse = await uploadApi.createDocument({
+        uploadId: uploadRecordResponse.data.id,
+        fileName: file.name,
+        documentUrl: `https://your-bucket.s3.amazonaws.com/${key}`, // You'll need to replace with actual bucket URL
+        type: getDocumentType(file.type),
+        workspaceId,
       });
 
       onProgress?.(100);
-      return completeResponse.data.document;
+      return documentResponse.data;
     } catch (error) {
       console.error("📤 [UploadAPI] Upload with progress failed:", error);
       throw error;
