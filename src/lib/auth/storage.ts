@@ -1,6 +1,8 @@
 // Simple authentication storage utilities
 // SSR-safe localStorage wrapper
 
+import { TokenUtils } from "./tokenUtils";
+
 export interface StoredUser {
   id: string;
   name: string;
@@ -99,7 +101,40 @@ class AuthStorage {
   static isAuthenticated(): boolean {
     const token = this.getAccessToken();
     const user = this.getUser();
-    return !!(token && user);
+
+    if (!token || !user) return false;
+
+    // Check if token is expired
+    if (TokenUtils.isTokenExpired(token)) {
+      console.log("🔍 [AuthStorage] Access token is expired");
+      return false;
+    }
+
+    return true;
+  }
+
+  // Check if access token needs refresh (expires within 5 minutes)
+  static needsTokenRefresh(): boolean {
+    const token = this.getAccessToken();
+    if (!token) return false;
+
+    return TokenUtils.willExpireSoon(token, 5);
+  }
+
+  // Get token expiration info
+  static getTokenExpirationInfo(): {
+    isExpired: boolean;
+    willExpireSoon: boolean;
+    timeUntilExpiration: number;
+  } | null {
+    const token = this.getAccessToken();
+    if (!token) return null;
+
+    return {
+      isExpired: TokenUtils.isTokenExpired(token),
+      willExpireSoon: TokenUtils.willExpireSoon(token, 5),
+      timeUntilExpiration: TokenUtils.getTimeUntilExpiration(token),
+    };
   }
 
   // Get all auth data

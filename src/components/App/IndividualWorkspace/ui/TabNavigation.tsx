@@ -29,8 +29,8 @@ export function TabNavigation({ activeTab, onTabChange, uploadCount, documentCou
   ];
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl ${className}`}>
-      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+    <div className={`bg-red-20 dark:bg-gray-8 rounded-xl ${className}`}>
+      <div className="flex gap-2 p-2 border- border-gray-200 dark:border-gray-700 overflow-x-auto">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -40,11 +40,11 @@ export function TabNavigation({ activeTab, onTabChange, uploadCount, documentCou
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                flex items-center gap-2 px-4 sm:px-6 py-3 text-sm font-medium transition-all duration-200 border-b-2 -mb-px whitespace-nowrap
+                flex items-center gap-2 px-4 sm:px-6 py-2 text-sm font-medium transition-all duration-200 border whitespace-nowrap
                 ${
                   isActive
-                    ? "text-indigo-600 dark:text-indigo-400 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10"
-                    : "text-gray-600 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-600"
+                    ? "rounded-medium text-brandLight dark:text-brandDark border-brandLight dark:border-brandDark bg-indigo-50 dark:bg-indigo-900/10"
+                    : "bg-gray-200 dark:bg-hexaGray border-gray-400 dark:border-gray-600 rounded-medium border-transparent hover:text-gray-900 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-600"
                 }
               `}
             >
@@ -56,7 +56,7 @@ export function TabNavigation({ activeTab, onTabChange, uploadCount, documentCou
                   inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full min-w-[20px]
                   ${
                     isActive
-                      ? "bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300"
+                      ? "bg-indigo-100 dark:bg-brandDark text-indigo-700 dark:text-gray-900"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                   }
                 `}

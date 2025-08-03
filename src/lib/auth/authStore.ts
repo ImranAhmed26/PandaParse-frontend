@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AuthStorage, { type StoredUser } from "./storage";
 import { authEvents } from "./authEvents";
+import { tokenRefreshService } from "./tokenRefreshService";
 
 interface AuthState {
   // State
@@ -41,6 +42,9 @@ export const useAuthStore = create<AuthState>()(
           isLoading: false,
         });
 
+        // Start token refresh service
+        tokenRefreshService.start();
+
         // Redirect to dashboard after successful login
         if (typeof window !== "undefined") {
           // Use window.location for client-side redirects in Zustand store
@@ -51,6 +55,9 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         console.log("🔐 AuthStore: Logging out user");
+
+        // Stop token refresh service
+        tokenRefreshService.stop();
 
         // Clear localStorage
         AuthStorage.clearAuthData();
@@ -87,6 +94,7 @@ export const useAuthStore = create<AuthState>()(
       initializeAuth: () => {
         try {
           const { user: storedUser } = AuthStorage.getAuthData();
+          const tokenInfo = AuthStorage.getTokenExpirationInfo();
 
           if (storedUser && AuthStorage.isAuthenticated()) {
             set({
@@ -94,8 +102,21 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               isLoading: false,
             });
+
+            // Start token refresh service for authenticated users
+            tokenRefreshService.start();
+
+            // Log token status for debugging
+            if (tokenInfo) {
+              console.log("🔐 AuthStore: Token status:", {
+                isExpired: tokenInfo.isExpired,
+                willExpireSoon: tokenInfo.willExpireSoon,
+                timeUntilExpiration: Math.round(tokenInfo.timeUntilExpiration / 1000 / 60) + " minutes",
+              });
+            }
           } else {
             // Clear invalid/expired auth data
+            console.log("🔐 AuthStore: Clearing invalid/expired auth data");
             AuthStorage.clearAuthData();
             set({
               user: null,

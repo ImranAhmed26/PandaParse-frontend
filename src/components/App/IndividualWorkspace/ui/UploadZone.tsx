@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Upload, FileText, Image, File, X, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, Image, File, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { useWorkspaceStore } from "../store/workspaceStore";
-import { useUploadDocuments } from "../hooks";
-import type { UploadItem } from "../types";
+import { useS3Upload } from "@/lib/hooks/useS3Upload";
+// import type { UploadProgress } from "@/lib/hooks/useS3Upload";
 
 interface UploadZoneProps {
   workspaceId: string;
@@ -32,12 +32,25 @@ const MAX_FILES = 10;
 
 export function UploadZone({ workspaceId, onUploadComplete, disabled, className = "" }: UploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const uploadMutation = useUploadDocuments();
   const workspace = useWorkspaceStore((state) => state.workspace);
+
+  // Use S3 upload hook
+  const { uploadFiles, uploadProgress, clearCompleted, hasActiveUploads, completedCount, errorCount } = useS3Upload({
+    workspaceId,
+    onUploadComplete: (document) => {
+      console.log("📤 [UploadZone] Document uploaded:", document);
+      onUploadComplete?.([document]);
+    },
+    onUploadError: (error, fileName) => {
+      console.error("📤 [UploadZone] Upload error:", error, fileName);
+    },
+    onProgressUpdate: (progress) => {
+      console.log("📤 [UploadZone] Progress update:", progress);
+    },
+  });
 
   // File validation
   const validateFile = (file: File): FileValidationResult => {
@@ -72,7 +85,7 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
 
   // Process selected files
   const processFiles = useCallback(
-    (files: FileList | File[]) => {
+    async (files: FileList | File[]) => {
       const fileArray = Array.from(files);
       const errors: string[] = [];
       const validFiles: File[] = [];
@@ -96,58 +109,22 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
 
       setValidationErrors(errors);
 
-      // Create upload items for valid files
+      // Start S3 upload for valid files
       if (validFiles.length > 0) {
-        const uploadItems: UploadItem[] = validFiles.map((file) => ({
-          id: `upload-${Date.now()}-${Math.random()}`,
-          file,
-          progress: 0,
-          status: "pending",
-        }));
+        try {
+          await uploadFiles(validFiles);
 
-        setUploadQueue(uploadItems);
-
-        // Start upload
-        uploadMutation.mutate(
-          {
-            workspaceId,
-            files: validFiles,
-            autoProcess: workspace?.settings.autoProcess ?? true,
-          },
-          {
-            onSuccess: (documents) => {
-              // Update upload items to completed
-              setUploadQueue((prev) =>
-                prev.map((item) => ({
-                  ...item,
-                  status: "completed" as const,
-                  progress: 100,
-                }))
-              );
-
-              // Clear queue after a delay
-              setTimeout(() => {
-                setUploadQueue([]);
-                setValidationErrors([]);
-              }, 2000);
-
-              onUploadComplete?.(documents);
-            },
-            onError: (error) => {
-              // Update upload items to failed
-              setUploadQueue((prev) =>
-                prev.map((item) => ({
-                  ...item,
-                  status: "failed" as const,
-                  error: error.message,
-                }))
-              );
-            },
-          }
-        );
+          // Clear validation errors after successful upload initiation
+          setTimeout(() => {
+            setValidationErrors([]);
+          }, 1000);
+        } catch (error) {
+          console.error("📤 [UploadZone] Failed to start uploads:", error);
+          setValidationErrors((prev) => [...prev, "Failed to start upload process"]);
+        }
       }
     },
-    [workspaceId, workspace?.settings.autoProcess, uploadMutation, onUploadComplete]
+    [uploadFiles]
   );
 
   // Drag and drop handlers
@@ -214,29 +191,15 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
     }
   }, [disabled]);
 
-  // Remove upload item
-  const removeUploadItem = useCallback((itemId: string) => {
-    setUploadQueue((prev) => prev.filter((item) => item.id !== itemId));
-  }, []);
+  // Clear completed uploads
+  const handleClearCompleted = useCallback(() => {
+    clearCompleted();
+  }, [clearCompleted]);
 
   // Get file icon
   const getFileIcon = (mimeType: string) => {
     const fileType = ALLOWED_FILE_TYPES[mimeType as keyof typeof ALLOWED_FILE_TYPES];
     return fileType ? fileType.icon : File;
-  };
-
-  // Format file size
-  const formatFileSize = (bytes: number): string => {
-    const units = ["B", "KB", "MB", "GB"];
-    let size = bytes;
-    let unitIndex = 0;
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
 
   return (
@@ -343,20 +306,31 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
         </div>
       )}
 
-      {/* Upload Queue */}
-      {uploadQueue.length > 0 && (
+      {/* Upload Progress */}
+      {uploadProgress.length > 0 && (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
-          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-            Upload Progress ({uploadQueue.length} file{uploadQueue.length !== 1 ? "s" : ""})
-          </h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Upload Progress ({uploadProgress.length} file{uploadProgress.length !== 1 ? "s" : ""})
+            </h4>
+
+            {completedCount > 0 && !hasActiveUploads && (
+              <button
+                onClick={handleClearCompleted}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              >
+                Clear completed
+              </button>
+            )}
+          </div>
 
           <div className="space-y-3">
-            {uploadQueue.map((item) => {
-              const FileIcon = getFileIcon(item.file.type);
+            {uploadProgress.map((item) => {
+              const FileIcon = getFileIcon("application/pdf"); // Default icon, could be enhanced
 
               return (
                 <div
-                  key={item.id}
+                  key={item.fileId}
                   className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600/50 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-colors duration-200"
                 >
                   <div className="flex-shrink-0">
@@ -367,8 +341,7 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{item.file.name}</p>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(item.file.size)}</span>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{item.fileName}</p>
                     </div>
 
                     {/* Progress Bar */}
@@ -377,7 +350,7 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
                         className={`h-2 rounded-full transition-all duration-500 ease-out ${
                           item.status === "completed"
                             ? "bg-gradient-to-r from-green-500 to-green-600"
-                            : item.status === "failed"
+                            : item.status === "error"
                             ? "bg-gradient-to-r from-red-500 to-red-600"
                             : "bg-gradient-to-r from-indigo-500 to-indigo-600"
                         }`}
@@ -388,10 +361,12 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
                     {/* Status */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {item.status === "pending" && (
+                        {(item.status === "pending" || item.status === "uploading") && (
                           <>
                             <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
-                            <span className="text-xs text-indigo-600 dark:text-indigo-400">Uploading...</span>
+                            <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                              {item.status === "pending" ? "Preparing..." : "Uploading..."}
+                            </span>
                           </>
                         )}
                         {item.status === "completed" && (
@@ -400,28 +375,40 @@ export function UploadZone({ workspaceId, onUploadComplete, disabled, className 
                             <span className="text-xs text-green-600 dark:text-green-400">Completed</span>
                           </>
                         )}
-                        {item.status === "failed" && (
+                        {item.status === "error" && (
                           <>
                             <AlertCircle className="h-3 w-3 text-red-500" />
-                            <span className="text-xs text-red-600 dark:text-red-400">Failed: {item.error}</span>
+                            <span className="text-xs text-red-600 dark:text-red-400">
+                              Failed: {item.error || "Unknown error"}
+                            </span>
                           </>
                         )}
                       </div>
 
-                      {item.status !== "pending" && (
-                        <button
-                          onClick={() => removeUploadItem(item.id)}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 hover:scale-105"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{Math.round(item.progress)}%</span>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Summary */}
+          {uploadProgress.length > 1 && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>
+                  {completedCount} completed, {errorCount} failed, {uploadProgress.length - completedCount - errorCount} remaining
+                </span>
+                {hasActiveUploads && (
+                  <div className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Uploading...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

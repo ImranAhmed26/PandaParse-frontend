@@ -79,7 +79,18 @@ class Api {
   private setupInterceptors() {
     // Request Interceptor
     this.instance.interceptors.request.use(
-      (config) => {
+      async (config) => {
+        // Check if token needs refresh before making request
+        if (AuthStorage.needsTokenRefresh()) {
+          console.log("🔄 [API] Token needs refresh, attempting proactive refresh");
+          try {
+            await this.refreshTokenProactively();
+          } catch (error) {
+            console.warn("🔄 [API] Proactive token refresh failed:", error);
+            // Continue with request - let response interceptor handle it
+          }
+        }
+
         // Add auth token if available (SSR-safe)
         const token = AuthStorage.getAccessToken();
         if (token) {
@@ -197,6 +208,33 @@ class Api {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // Proactive token refresh method
+  private async refreshTokenProactively(): Promise<void> {
+    const refreshToken = AuthStorage.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error("No refresh token available");
+    }
+
+    try {
+      const response = await axios.post(`${this.instance.defaults.baseURL}/auth/refresh`, {
+        refreshToken,
+      });
+
+      const { access_token, refresh_token } = response.data;
+      AuthStorage.setAccessToken(access_token);
+
+      // Update refresh token if provided
+      if (refresh_token) {
+        AuthStorage.setRefreshToken(refresh_token);
+      }
+
+      console.log("🔄 [API] Token refreshed proactively");
+    } catch (error) {
+      console.error("🔄 [API] Proactive token refresh failed:", error);
+      throw error;
+    }
   }
 
   private getErrorCode(error: AxiosError): ApiErrorCode {

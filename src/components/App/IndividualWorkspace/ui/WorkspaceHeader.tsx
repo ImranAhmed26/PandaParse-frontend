@@ -21,7 +21,7 @@ export function WorkspaceHeader({ workspace, onSettingsClick }: WorkspaceHeaderP
   const canManageMembers = canManageWorkspaceMembers(user);
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+    <div className="bg-white dark:bg-hexaGray border border-gray-200 dark:border-gray-700 rounded-xl">
       <div className="flex justify-between px-6 py-4">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-2 text-sm">

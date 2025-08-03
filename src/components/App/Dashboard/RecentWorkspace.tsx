@@ -81,7 +81,7 @@ export function RecentWorkSpaceList() {
               <Link
                 key={ws.id}
                 href={`/workspace/${ws.id}`}
-                className="group border border-gray-100 dark:border-gray-600 rounded-xl p-5 bg-white dark:bg-hexaGray hover:shadow-md transition-shadow"
+                className="group border border-gray-200 dark:border-gray-600 rounded-xl p-5 bg-white dark:bg-hexaGray hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start gap-4">
                   <div className="bg-gray-100 dark:bg-quadraGray p-3 rounded-lg">

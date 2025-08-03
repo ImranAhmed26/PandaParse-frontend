@@ -50,13 +50,13 @@ interface TableColumn {
 }
 
 const columns: TableColumn[] = [
-  { key: "selection", label: "", sortable: false, width: "w-12", align: "center" },
-  { key: "name", label: "Name", sortable: true, width: "flex-1" },
-  { key: "status", label: "Status", sortable: true, width: "w-32", align: "center" },
-  { key: "uploaded", label: "Uploaded", sortable: true, width: "w-32", align: "center" },
-  { key: "size", label: "Size", sortable: true, width: "w-24", align: "right" },
-  { key: "confidence", label: "Confidence", sortable: true, width: "w-28", align: "center" },
-  { key: "actions", label: "Actions", sortable: false, width: "w-32", align: "center" },
+  { key: "selection", label: "", sortable: false, width: "w-16", align: "center" },
+  { key: "name", label: "Name", sortable: true, width: "min-w-0 flex-1", align: "left" },
+  { key: "status", label: "Status", sortable: true, width: "w-28", align: "center" },
+  { key: "uploaded", label: "Uploaded", sortable: true, width: "w-28", align: "center" },
+  { key: "size", label: "Size", sortable: true, width: "w-20", align: "right" },
+  { key: "confidence", label: "Confidence", sortable: true, width: "w-24", align: "center" },
+  { key: "actions", label: "Actions", sortable: false, width: "w-20", align: "center" },
 ];
 
 export function DocumentTable({
@@ -180,23 +180,86 @@ export function DocumentTable({
     return (
       <div className={`space-y-4 ${className}`}>
         <div className="animate-pulse">
-          {/* Table header skeleton */}
-          <div className="grid grid-cols-7 gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2">
-            {columns.map((_, index) => (
-              <div key={index} className="h-4 bg-gray-200 dark:bg-gray-600 rounded"></div>
-            ))}
+          {/* Header Skeleton */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-2 mb-4">
+            <div className="flex items-center gap-4">
+              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+              <div className="flex items-center gap-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              </div>
+            </div>
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-md w-24"></div>
           </div>
-          {/* Table rows skeleton */}
-          {[...Array(5)].map((_, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-7 gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
-            >
-              {columns.map((_, colIndex) => (
-                <div key={colIndex} className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+
+          {/* Table Container Skeleton */}
+          <div className="border border-gray-300 dark:border-gray-700 rounded-large overflow-hidden">
+            {/* Table Header Skeleton */}
+            <div className="hidden md:block">
+              <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                <div className="grid grid-cols-[4rem_1fr_7rem_7rem_5rem_6rem_5rem] gap-4 px-6 py-3">
+                  {columns.map((_, index) => (
+                    <div key={index} className="h-4 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Table Rows Skeleton */}
+            <div className="divide-y divide-gray-300 dark:divide-gray-700">
+              {[...Array(5)].map((_, index) => (
+                <div key={index}>
+                  {/* Desktop Row */}
+                  <div className="hidden md:block">
+                    <div className="grid grid-cols-[4rem_1fr_7rem_7rem_5rem_6rem_5rem] gap-4 px-6 py-4">
+                      <div className="flex items-center justify-center">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4"></div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-5"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-md w-16"></div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10"></div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Card */}
+                  <div className="block md:hidden p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4 mt-1"></div>
+                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-5 mt-1"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-md w-16"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                        </div>
+                      </div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4"></div>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     );
@@ -217,7 +280,7 @@ export function DocumentTable({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-2">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Documents ({documents.length})</h2>
           {documents.length > 0 && (
@@ -302,7 +365,7 @@ export function DocumentTable({
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="border border-gray-300 dark:border-gray-700 rounded-large overflow-hidden">
         {/* Mobile Card View */}
         <div className="block md:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -444,13 +507,12 @@ export function DocumentTable({
         <div className="hidden md:block overflow-x-auto">
           {/* Table Header */}
           <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-            <div className="grid grid-cols-7 gap-4 px-6 py-3">
+            <div className="grid grid-cols-[4rem_1fr_7rem_7rem_5rem_6rem_5rem] gap-4 px-6 py-3">
               {columns.map((column) => (
                 <div
                   key={column.key}
                   className={`
                   flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider
-                  ${column.width || ""}
                   ${column.align === "center" ? "justify-center" : column.align === "right" ? "justify-end" : "justify-start"}
                   ${column.sortable ? "cursor-pointer hover:text-gray-700 dark:hover:text-gray-300" : ""}
                 `}
@@ -495,8 +557,8 @@ export function DocumentTable({
           </div>
 
           {/* Table Body */}
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {documents.map((document, index) => {
+          <div className="divide-y divide-gray-300 dark:divide-gray-700">
+            {documents.map((document) => {
               const FileIcon = getFileIcon(document.mimeType);
               const statusDisplay = getStatusDisplay(document.status);
               const StatusIcon = statusDisplay.icon;
@@ -506,14 +568,8 @@ export function DocumentTable({
                 <div
                   key={document.id}
                   className={`
-                  grid grid-cols-7 gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors
-                  ${
-                    isSelected
-                      ? "bg-indigo-50 dark:bg-indigo-900/20"
-                      : index % 2 === 0
-                      ? "bg-white dark:bg-gray-800"
-                      : "bg-gray-50/50 dark:bg-gray-700/20"
-                  }
+                  grid grid-cols-[4rem_1fr_7rem_7rem_5rem_6rem_5rem] gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors
+                  ${isSelected ? "bg-indigo-50 dark:bg-indigo-900/20" : ""}
                 `}
                 >
                   {/* Selection */}
@@ -527,12 +583,12 @@ export function DocumentTable({
                   </div>
 
                   {/* Name */}
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 pr-4">
                     <FileIcon className="h-5 w-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <button
                         onClick={() => onDocumentSelect(document)}
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 truncate block max-w-full text-left"
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 truncate block w-full text-left"
                         title={document.originalName}
                       >
                         {document.originalName}
@@ -552,22 +608,22 @@ export function DocumentTable({
 
                   {/* Uploaded */}
                   <div className="flex items-center justify-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{formatDate(document.uploadedAt)}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{formatDate(document.uploadedAt)}</span>
                   </div>
 
                   {/* Size */}
                   <div className="flex items-center justify-end">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{formatFileSize(document.fileSize)}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{formatFileSize(document.fileSize)}</span>
                   </div>
 
                   {/* Confidence */}
                   <div className="flex items-center justify-center">
                     {document.ocrResults ? (
-                      <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
                         {Math.round(document.ocrResults.confidence * 100)}%
                       </span>
                     ) : (
-                      <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
                     )}
                   </div>
 
