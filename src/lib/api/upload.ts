@@ -1,5 +1,6 @@
 import api from "./api";
 import type { ApiResponse } from "./api";
+import { getS3DocumentUrl } from "@/lib/utils/s3";
 
 // Upload Types
 export interface GenerateUploadUrlRequest {
@@ -240,7 +241,7 @@ export const uploadApi = {
       const documentResponse = await uploadApi.createDocument({
         uploadId: uploadRecordResponse.data.id,
         fileName: file.name,
-        documentUrl: `https://your-bucket.s3.amazonaws.com/${key}`, // You'll need to replace with actual bucket URL
+        documentUrl: getS3DocumentUrl(key),
         type: getDocumentType(file.type),
         workspaceId,
       });
