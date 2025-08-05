@@ -266,6 +266,79 @@ export function useDeleteDocument() {
   });
 }
 
+// Hook to bulk delete documents
+export function useBulkDeleteDocuments() {
+  const queryClient = useQueryClient();
+  const removeDocument = useWorkspaceStore((state) => state.removeDocument);
+
+  return useMutation({
+    mutationFn: async (documentIds: string[]) => {
+      console.log("🪝 [useBulkDeleteDocuments] Bulk deleting documents:", documentIds.length);
+      const response = await individualWorkspaceApi.bulkDeleteDocuments(documentIds);
+      console.log("🪝 [useBulkDeleteDocuments] Bulk delete completed:", {
+        successful: response.data.totalSuccessful,
+        failed: response.data.totalFailed,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log("🪝 [useBulkDeleteDocuments] Success, updating cache");
+
+      // Remove successfully deleted documents from store
+      data.successful.forEach((documentId) => {
+        removeDocument(documentId);
+      });
+
+      // Invalidate related queries
+      queryClient.invalidateQueries({
+        queryKey: individualWorkspaceKeys.all,
+      });
+    },
+    meta: {
+      successMessage: (data: any) => {
+        const { totalSuccessful, totalFailed } = data;
+        if (totalFailed === 0) {
+          return `${totalSuccessful} documents deleted successfully!`;
+        } else {
+          return `${totalSuccessful} documents deleted, ${totalFailed} failed`;
+        }
+      },
+      errorMessage: "Failed to delete documents",
+    },
+  });
+}
+
+// Hook to delete all workspace documents
+export function useDeleteAllWorkspaceDocuments() {
+  const queryClient = useQueryClient();
+  const setDocuments = useWorkspaceStore((state) => state.setDocuments);
+
+  return useMutation({
+    mutationFn: async (workspaceId: string) => {
+      console.log("🪝 [useDeleteAllWorkspaceDocuments] Deleting all workspace documents:", workspaceId);
+      const response = await individualWorkspaceApi.deleteAllWorkspaceDocuments(workspaceId);
+      console.log("🪝 [useDeleteAllWorkspaceDocuments] All documents deleted:", response.data.deletedCount);
+      return { workspaceId, ...response.data };
+    },
+    onSuccess: (data) => {
+      console.log("🪝 [useDeleteAllWorkspaceDocuments] Success, updating cache");
+      console.log(`Deleted ${data.deletedCount} documents from workspace ${data.workspaceId}`);
+
+      // Clear all documents from store
+      setDocuments([]);
+
+      // Invalidate related queries
+      queryClient.invalidateQueries({
+        queryKey: individualWorkspaceKeys.all,
+      });
+    },
+    meta: {
+      successMessage: (data: any) => `${data.deletedCount} documents deleted from workspace!`,
+      errorMessage: "Failed to delete workspace documents",
+    },
+  });
+}
+
 // Hook to update workspace
 export function useUpdateWorkspace() {
   const queryClient = useQueryClient();

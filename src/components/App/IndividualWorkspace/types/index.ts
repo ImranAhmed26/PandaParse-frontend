@@ -198,6 +198,23 @@ export interface ExportRequest {
   includeConfidence?: boolean;
 }
 
+// Bulk Delete Types
+export interface BulkDeleteResponse {
+  successful: string[];
+  failed: Array<{
+    id: string;
+    error: string;
+  }>;
+  totalRequested: number;
+  totalSuccessful: number;
+  totalFailed: number;
+}
+
+export interface WorkspaceDeleteResponse {
+  message: string;
+  deletedCount: number;
+}
+
 // UI State Types
 export interface WorkspaceUIState {
   selectedDocument: Document | null;

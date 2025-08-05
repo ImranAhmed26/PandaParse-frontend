@@ -14,6 +14,8 @@ import type {
   UploadDocumentRequest,
   UpdateWorkspaceRequest,
   ExportRequest,
+  BulkDeleteResponse,
+  WorkspaceDeleteResponse,
 } from "../types";
 
 // Import backend types from upload API
@@ -367,7 +369,7 @@ export const individualWorkspaceApi = {
     }
   },
 
-  // Delete document
+  // Delete single document
   deleteDocument: async (documentId: string): Promise<ApiResponse<{ message: string }>> => {
     console.log(`🏢 [Individual Workspace API] Deleting document: ${documentId}`);
 
@@ -385,6 +387,46 @@ export const individualWorkspaceApi = {
     } catch (error: any) {
       console.error(`🏢 [Individual Workspace API] Error deleting document:`, error);
       throw new Error(`Failed to delete document: ${error.message}`);
+    }
+  },
+
+  // Bulk delete multiple documents
+  bulkDeleteDocuments: async (documentIds: string[]): Promise<ApiResponse<BulkDeleteResponse>> => {
+    console.log(`🏢 [Individual Workspace API] Bulk deleting ${documentIds.length} documents:`, documentIds);
+
+    try {
+      const response = await api.delete<BulkDeleteResponse>("/documents/bulk", {
+        data: { documentIds },
+      });
+
+      console.log(`🏢 [Individual Workspace API] Bulk delete completed:`, {
+        totalRequested: response.data.totalRequested,
+        totalSuccessful: response.data.totalSuccessful,
+        totalFailed: response.data.totalFailed,
+      });
+
+      return response;
+    } catch (error: any) {
+      console.error(`🏢 [Individual Workspace API] Error bulk deleting documents:`, error);
+      throw new Error(`Failed to bulk delete documents: ${error.message}`);
+    }
+  },
+
+  // Delete all documents in workspace
+  deleteAllWorkspaceDocuments: async (workspaceId: string): Promise<ApiResponse<WorkspaceDeleteResponse>> => {
+    console.log(`🏢 [Individual Workspace API] Deleting all documents in workspace: ${workspaceId}`);
+
+    try {
+      const response = await api.delete<WorkspaceDeleteResponse>(`/documents/workspace/${workspaceId}`);
+
+      console.log(`🏢 [Individual Workspace API] Workspace documents deleted:`, {
+        deletedCount: response.data.deletedCount,
+      });
+
+      return response;
+    } catch (error: any) {
+      console.error(`🏢 [Individual Workspace API] Error deleting workspace documents:`, error);
+      throw new Error(`Failed to delete workspace documents: ${error.message}`);
     }
   },
 

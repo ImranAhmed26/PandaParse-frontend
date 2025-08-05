@@ -1,5 +1,11 @@
 import { useWorkspaceStore } from "../store/workspaceStore";
-import { useDeleteDocument, useReprocessDocument } from "./index";
+import {
+  useDeleteDocument,
+  useBulkDeleteDocuments,
+  useDeleteAllWorkspaceDocuments,
+  useReprocessDocument,
+  useExportDocuments,
+} from "./index";
 
 /**
  * Custom hook that provides all document-related handlers
@@ -14,7 +20,10 @@ export function useDocumentHandlers() {
   const clearSelection = useWorkspaceStore((state) => state.clearSelection);
 
   const deleteDocumentMutation = useDeleteDocument();
+  const bulkDeleteDocumentsMutation = useBulkDeleteDocuments();
+  const deleteAllWorkspaceDocumentsMutation = useDeleteAllWorkspaceDocuments();
   const reprocessDocumentMutation = useReprocessDocument();
+  const exportDocumentsMutation = useExportDocuments();
 
   // Handle document selection
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -82,20 +91,37 @@ export function useDocumentHandlers() {
   const handleBulkDelete = async () => {
     if (selectedDocuments.length === 0) return;
 
+    // Validate maximum limit (100 documents as per backend)
+    if (selectedDocuments.length > 100) {
+      alert(`Cannot delete more than 100 documents at once. You have selected ${selectedDocuments.length} documents.`);
+      return;
+    }
+
     const confirmed = window.confirm(
       `Are you sure you want to delete ${selectedDocuments.length} selected document(s)?\n\nThis action cannot be undone.`
     );
 
     if (confirmed) {
       try {
-        // Delete documents one by one
-        for (const documentId of selectedDocuments) {
-          await deleteDocumentMutation.mutateAsync(documentId);
+        const result = await bulkDeleteDocumentsMutation.mutateAsync(selectedDocuments);
+
+        // Show detailed results to user
+        if (result.totalFailed > 0) {
+          const failedMessages = result.failed.map((f) => `• ${f.id}: ${f.error}`).join("\n");
+          alert(
+            `Bulk delete completed with some failures:\n\n` +
+              `✅ Successfully deleted: ${result.totalSuccessful} documents\n` +
+              `❌ Failed to delete: ${result.totalFailed} documents\n\n` +
+              `Failed documents:\n${failedMessages}`
+          );
+        } else {
+          // All successful - no need for alert, the success message will show via toast/notification
         }
-        // Clear selection after successful bulk delete
+
+        // Clear selection after operation (regardless of partial failures)
         clearSelection();
       } catch (error) {
-        console.error("Failed to delete documents:", error);
+        console.error("Failed to bulk delete documents:", error);
         // Keep selection intact for retry
       }
     }
@@ -123,25 +149,72 @@ export function useDocumentHandlers() {
   };
 
   // Handle bulk export operation
-  const handleBulkExport = () => {
+  const handleBulkExport = async () => {
     if (selectedDocuments.length === 0) return;
 
-    // TODO: Implement bulk export functionality
-    console.log(`Exporting ${selectedDocuments.length} selected documents:`, selectedDocuments);
+    try {
+      await exportDocumentsMutation.mutateAsync({
+        documentIds: selectedDocuments,
+        format: "json",
+        includeMetadata: true,
+        includeConfidence: true,
+      });
 
-    // For now, just show an alert
-    alert(`Export functionality will be implemented soon.\nSelected ${selectedDocuments.length} documents for export.`);
+      // The export hook will handle opening the download URL
+      console.log(`Export completed for ${selectedDocuments.length} documents`);
+
+      // Clear selection after successful export
+      clearSelection();
+    } catch (error) {
+      console.error("Failed to export documents:", error);
+    }
   };
 
   // Handle export all operation
-  const handleExportAll = () => {
+  const handleExportAll = async () => {
     if (documents.length === 0) return;
 
-    // TODO: Implement export all functionality
-    console.log(`Exporting all ${documents.length} documents`);
+    const allDocumentIds = documents.map((doc) => doc.id);
 
-    // For now, just show an alert
-    alert(`Export functionality will be implemented soon.\nWill export all ${documents.length} documents.`);
+    try {
+      await exportDocumentsMutation.mutateAsync({
+        documentIds: allDocumentIds,
+        format: "json",
+        includeMetadata: true,
+        includeConfidence: true,
+      });
+
+      console.log(`Export completed for all ${documents.length} documents`);
+    } catch (error) {
+      console.error("Failed to export all documents:", error);
+    }
+  };
+
+  // Handle delete all workspace documents
+  const handleDeleteAllWorkspaceDocuments = async (workspaceId: string) => {
+    if (documents.length === 0) return;
+
+    const confirmed = window.confirm(
+      `⚠️ DANGER: Delete ALL documents in this workspace?\n\n` +
+        `This will permanently delete all ${documents.length} documents in this workspace.\n\n` +
+        `This action cannot be undone!\n\n` +
+        `Type "DELETE ALL" in the next prompt to confirm.`
+    );
+
+    if (confirmed) {
+      const confirmText = prompt(`To confirm deletion of ALL ${documents.length} documents, type "DELETE ALL" (case sensitive):`);
+
+      if (confirmText === "DELETE ALL") {
+        try {
+          await deleteAllWorkspaceDocumentsMutation.mutateAsync(workspaceId);
+          console.log(`All documents deleted from workspace: ${workspaceId}`);
+        } catch (error) {
+          console.error("Failed to delete all workspace documents:", error);
+        }
+      } else {
+        alert("Deletion cancelled - confirmation text did not match.");
+      }
+    }
   };
 
   return {
@@ -156,5 +229,6 @@ export function useDocumentHandlers() {
     handleBulkReprocess,
     handleBulkExport,
     handleExportAll,
+    handleDeleteAllWorkspaceDocuments,
   };
 }
