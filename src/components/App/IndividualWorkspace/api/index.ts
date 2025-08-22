@@ -297,14 +297,14 @@ export const individualWorkspaceApi = {
     try {
       const uploadedDocuments: Document[] = [];
 
-      // Use the S3 upload API for each file
+      // Use the consolidated upload API for each file
       const { uploadApi } = await import("@/lib/api/upload");
 
       for (const file of request.files) {
         try {
           console.log(`🏢 [Individual Workspace API] Uploading file: ${file.name}`);
 
-          // Upload file using the S3 upload API
+          // Upload file using the consolidated upload API
           const documentResponse = await uploadApi.uploadFileWithProgress(file, request.workspaceId);
 
           // Transform backend DocumentResponse to frontend Document format
@@ -325,24 +325,12 @@ export const individualWorkspaceApi = {
                 : "processing",
             workspaceId: request.workspaceId,
             uploadedBy: documentResponse.userId,
-            downloadUrl: documentResponse.documentUrl, // Use documentUrl as downloadUrl
+            downloadUrl: documentResponse.documentUrl,
             processingJobId: documentResponse.uploadId,
             ocrResults: undefined,
           };
 
           uploadedDocuments.push(document);
-
-          // If auto-process is enabled, create a processing job
-          if (request.autoProcess) {
-            try {
-              await api.post("/jobs", {
-                uploadId: documentResponse.uploadId,
-                type: file.type.includes("pdf") ? "OTHER" : "RECEIPT",
-              });
-            } catch (jobError) {
-              console.warn(`🏢 [Individual Workspace API] Failed to create processing job for ${file.name}:`, jobError);
-            }
-          }
 
           console.log(`🏢 [Individual Workspace API] File uploaded successfully: ${file.name}`);
         } catch (fileError: any) {

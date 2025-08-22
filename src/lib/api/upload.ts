@@ -23,36 +23,6 @@ export interface UploadToS3Request {
   fields?: Record<string, string>;
 }
 
-// Upload Record Types
-export interface CreateUploadRecordRequest {
-  key: string;
-  fileName: string;
-  fileType: string;
-  fileSize?: number;
-  workspaceId?: string;
-}
-
-export interface UploadRecordResponse {
-  id: string;
-  key: string;
-  fileName: string;
-  fileType: string;
-  fileSize?: number;
-  status: "uploaded" | "processing" | "complete" | "failed";
-  uploadedAt: string;
-  userId: string;
-  workspaceId?: string;
-}
-
-// Document Types
-export interface CreateDocumentRequest {
-  uploadId: string;
-  fileName: string;
-  documentUrl: string;
-  type: "INVOICE" | "RECEIPT" | "CREDIT_NOTE" | "PURCHASE_ORDER" | "BANK_STATEMENT" | "PAYSLIP" | "CONTRACT" | "OTHER";
-  workspaceId?: string;
-}
-
 export interface DocumentResponse {
   id: string;
   fileName: string;
@@ -63,6 +33,32 @@ export interface DocumentResponse {
   userId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Consolidated Upload Types
+export interface ProcessUploadRequest {
+  fileName: string;
+  s3Key: string;
+  fileType: string;
+  userId: string;
+  workspaceId: string;
+  documentType: "INVOICE" | "RECEIPT" | "CREDIT_NOTE" | "PURCHASE_ORDER" | "BANK_STATEMENT" | "PAYSLIP" | "CONTRACT" | "OTHER";
+  fileSize: number;
+}
+
+export interface ProcessUploadResponse {
+  uploadId: string;
+  documentId: string;
+  jobId: string;
+  sqsMessageId: string;
+  status: "success" | "error";
+}
+
+// Error handling types for consolidated endpoint
+export interface ProcessUploadError {
+  step: "job" | "workspace_association" | "sqs_trigger";
+  message: string;
+  details?: any;
 }
 
 // Upload API Functions
@@ -135,32 +131,43 @@ export const uploadApi = {
     }
   },
 
-  // Create upload record (step 1 of completion)
-  createUploadRecord: async (data: CreateUploadRecordRequest): Promise<ApiResponse<UploadRecordResponse>> => {
-    console.log("📝 [UploadAPI] Creating upload record:", data);
-
-    const response = await api.post<UploadRecordResponse>("/upload/records", data);
-
-    console.log("📝 [UploadAPI] Upload record created:", {
-      uploadId: response.data.id,
-      status: response.data.status,
+  // Process upload (consolidated endpoint)
+  processUpload: async (data: ProcessUploadRequest): Promise<ApiResponse<ProcessUploadResponse>> => {
+    console.log("🔄 [UploadAPI] Processing upload with consolidated endpoint:", {
+      fileName: data.fileName,
+      s3Key: data.s3Key,
+      fileType: data.fileType,
+      userId: data.userId,
+      workspaceId: data.workspaceId,
+      documentType: data.documentType,
+      fileSize: data.fileSize,
     });
 
-    return response;
-  },
+    try {
+      const response = await api.post<ProcessUploadResponse>("/upload/process", data);
 
-  // Create document (step 2 of completion)
-  createDocument: async (data: CreateDocumentRequest): Promise<ApiResponse<DocumentResponse>> => {
-    console.log("📄 [UploadAPI] Creating document:", data);
+      console.log("🔄 [UploadAPI] Upload processed successfully:", {
+        uploadId: response.data.uploadId,
+        documentId: response.data.documentId,
+        jobId: response.data.jobId,
+        sqsMessageId: response.data.sqsMessageId,
+        status: response.data.status,
+      });
 
-    const response = await api.post<DocumentResponse>("/documents", data);
+      return response;
+    } catch (error) {
+      console.error("🔄 [UploadAPI] Upload processing failed:", error);
 
-    console.log("📄 [UploadAPI] Document created:", {
-      documentId: response.data.id,
-      status: response.data.status,
-    });
+      // Enhanced error logging for the consolidated endpoint
+      if (error && typeof error === "object" && "response" in error) {
+        const apiError = error as any;
+        if (apiError.response?.data) {
+          console.error("🔄 [UploadAPI] Server error details:", apiError.response.data);
+        }
+      }
 
-    return response;
+      throw error;
+    }
   },
 
   // Upload file with progress (combines all steps)
@@ -218,36 +225,50 @@ export const uploadApi = {
 
       await uploadPromise;
 
-      // Step 3: Create upload record
+      // Step 3: Process upload using consolidated endpoint
       onProgress?.(90);
-      const uploadRecordResponse = await uploadApi.createUploadRecord({
-        key,
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        workspaceId,
-      });
 
-      // Step 4: Create document
-      onProgress?.(95);
+      // Get current user ID from auth store
+      const { useAuthStore } = await import("@/lib/auth/authStore");
+      const user = useAuthStore.getState().user;
+
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
 
       // Determine document type based on file type
-      const getDocumentType = (fileType: string): CreateDocumentRequest["type"] => {
+      const getDocumentType = (fileType: string): ProcessUploadRequest["documentType"] => {
         if (fileType.includes("pdf")) return "OTHER";
         if (fileType.includes("image")) return "RECEIPT";
         return "OTHER";
       };
 
-      const documentResponse = await uploadApi.createDocument({
-        uploadId: uploadRecordResponse.data.id,
+      const processResponse = await uploadApi.processUpload({
         fileName: file.name,
-        documentUrl: getS3DocumentUrl(key),
-        type: getDocumentType(file.type),
+        s3Key: key,
+        fileType: file.type,
+        userId: user.id,
         workspaceId,
+        documentType: getDocumentType(file.type),
+        fileSize: file.size,
       });
 
       onProgress?.(100);
-      return documentResponse.data;
+
+      // Construct DocumentResponse from ProcessUploadResponse and file data
+      const documentResponse: DocumentResponse = {
+        id: processResponse.data.documentId,
+        fileName: file.name,
+        documentUrl: getS3DocumentUrl(key),
+        type: getDocumentType(file.type),
+        status: "UNPROCESSED",
+        uploadId: processResponse.data.uploadId,
+        userId: user.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      return documentResponse;
     } catch (error) {
       console.error("📤 [UploadAPI] Upload with progress failed:", error);
       throw error;
