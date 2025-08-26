@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           // Use window.location for client-side redirects in Zustand store
           // This maintains the current locale automatically
-          window.location.href = "/dashboard";
+          // window.location.href = "/dashboard";
         }
       },
 
@@ -152,7 +152,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           // Use window.location for client-side redirects in Zustand store
           // This maintains the current locale automatically
-          window.location.href = "/auth/login";
+          // window.location.href = "/auth/login";
         }
       },
     }),

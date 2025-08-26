@@ -16,6 +16,26 @@ export function WorkspaceHeader({ workspace, onSettingsClick }: WorkspaceHeaderP
   const { user } = useAuth();
   const [showActions, setShowActions] = useState(false);
 
+  // Safety check - if workspace is not properly loaded, show loading state
+  if (!workspace || !workspace.stats) {
+    return (
+      <div className="bg-white dark:bg-hexaGray border border-gray-200 dark:border-gray-700 rounded-xl">
+        <div className="flex justify-between px-6 py-4">
+          <div className="flex items-center gap-2 text-sm">
+            <Link href="/workspace" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium">
+              Workspaces
+            </Link>
+            <span>/</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">Loading...</span>
+          </div>
+          <div className="flex items-center gap-4 lg:gap-6 flex-shrink-0">
+            <div className="text-sm text-gray-500">Loading workspace...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Check permissions
   const canManageWorkspace = workspace.ownerId === user?.id;
   const canManageMembers = canManageWorkspaceMembers(user);
