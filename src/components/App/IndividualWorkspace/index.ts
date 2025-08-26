@@ -38,6 +38,3 @@ export type { TabType } from "./ui/TabNavigation";
 // Future components to be implemented:
 // - DocumentViewer: Modal for viewing document details and OCR results
 // - ProcessingQueue: Component for monitoring document processing status
-
-// Re-export the main component as default for convenience
-export { WorkspacePage as default } from "./ui/WorkspacePage";
