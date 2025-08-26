@@ -238,9 +238,10 @@ export const uploadApi = {
 
       // Determine document type based on file type
       const getDocumentType = (fileType: string): ProcessUploadRequest["documentType"] => {
-        if (fileType.includes("pdf")) return "OTHER";
-        if (fileType.includes("image")) return "RECEIPT";
-        return "OTHER";
+        // if (fileType.includes("pdf")) return "OTHER";
+        // if (fileType.includes("image")) return "RECEIPT";
+        console.log(fileType)
+        return "INVOICE";
       };
 
       const processResponse = await uploadApi.processUpload({

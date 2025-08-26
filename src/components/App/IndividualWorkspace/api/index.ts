@@ -1,8 +1,8 @@
 // Individual Workspace API functions
 // Real API implementation using backend endpoints
 
-import api from "@/lib/api/api";
-import type { ApiResponse } from "@/lib/api/api";
+import api, { ApiResponse } from "@/lib/api/api";
+import type { DocumentResponse } from "@/lib/api/upload";
 import type {
   Workspace,
   WorkspaceStats,
@@ -19,7 +19,6 @@ import type {
 } from "../types";
 
 // Import backend types from upload API
-import type { DocumentResponse } from "@/lib/api/upload";
 
 // Individual Workspace API Functions
 export const individualWorkspaceApi = {
