@@ -20,23 +20,9 @@ export function useLoginForm() {
   // Direct login mutation - simple and straightforward
   const loginMutation = useMutation({
     mutationFn: async (data: LoginRequest) => {
-      console.log("🔥 Login mutation: Starting login with data:", data);
-      try {
-        const result = await authApi.login(data);
-        console.log("🔥 Login mutation: API call successful:", result);
-        return result;
-      } catch (error) {
-        console.error("🔥 Login mutation: API call failed:", error);
-        throw error;
-      }
+      return await authApi.login(data);
     },
     onSuccess: (response) => {
-      console.log("✅ Login successful:", response.data.user);
-      console.log("🔍 [Login] Full API response:", response);
-      console.log("🔍 [Login] Response data:", response.data);
-      console.log("🔍 [Login] Token from response:", response.data.access_token);
-      console.log("🔍 [Login] RefreshToken from response:", response.data.refresh_token);
-
       // Use auth context to handle login
       login(
         {
@@ -54,7 +40,7 @@ export function useLoginForm() {
       );
     },
     onError: (error: any) => {
-      console.error("❌ Login failed:", error);
+      console.error("Login failed:", error);
     },
   });
 
@@ -67,19 +53,16 @@ export function useLoginForm() {
   });
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    console.log("🔥 Login form submitted with data:", data);
-
     // Transform form data to API request format
     const loginData: LoginRequest = {
       email: data.email,
       password: data.password,
     };
 
-    console.log("🔥 Calling login mutation...");
     try {
       await loginMutation.mutateAsync(loginData);
     } catch (error) {
-      console.error("🔥 Login form error:", error);
+      console.error("Login form error:", error);
     }
   });
 

@@ -84,31 +84,35 @@ class TokenRefreshService {
         return;
       }
 
-      console.log("🔄 [TokenRefreshService] Refreshing token...");
-
       // Use fetch directly to avoid circular dependency with API client
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
       if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || `Token refresh failed: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+
+      // Backend returns direct response format: { access_token, refresh_token, user }
       const { access_token, refresh_token } = data;
+
+      if (!access_token) {
+        throw new Error("No access token in refresh response");
+      }
 
       // Update tokens
       AuthStorage.setAccessToken(access_token);
       if (refresh_token) {
         AuthStorage.setRefreshToken(refresh_token);
       }
-
-      console.log("🔄 [TokenRefreshService] Token refreshed successfully");
 
       // Schedule next refresh
       this.scheduleNextRefresh();

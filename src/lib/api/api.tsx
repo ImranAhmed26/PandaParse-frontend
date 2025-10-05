@@ -144,11 +144,20 @@ class Api {
             if (refreshToken) {
               // Attempt to refresh token
               const response = await axios.post(`${this.instance.defaults.baseURL}/auth/refresh`, {
-                refreshToken,
+                refresh_token: refreshToken,
               });
 
-              const { access_token } = response.data;
+              // Backend returns direct response format: { access_token, refresh_token, user }
+              const { access_token, refresh_token } = response.data;
+
+              if (!access_token) {
+                throw new Error("No access token in refresh response");
+              }
+
               AuthStorage.setAccessToken(access_token);
+              if (refresh_token) {
+                AuthStorage.setRefreshToken(refresh_token);
+              }
 
               // Retry original request
               originalRequest.headers.Authorization = `Bearer ${access_token}`;
