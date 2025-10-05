@@ -92,14 +92,14 @@ export function RecentWorkSpaceList() {
                       {ws.name}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {ws.documentsCount || 0} document{(ws.documentsCount || 0) !== 1 && "s"}
+                      {ws.documentCount || 0} document{(ws.documentCount || 0) !== 1 && "s"}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">Created {new Date(ws.createdAt).toLocaleDateString()}</p>
 
                     {/* Stats */}
-                    {(ws.documentsCount || ws.jobsCount) && (
+                    {(ws.documentCount || ws.jobsCount) && (
                       <div className="flex gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        <span>📄 {ws.documentsCount || 0} docs</span>
+                        <span>📄 {ws.documentCount || 0} docs</span>
                         <span>⚡ {ws.jobsCount || 0} jobs</span>
                       </div>
                     )}

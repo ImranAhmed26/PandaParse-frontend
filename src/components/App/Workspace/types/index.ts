@@ -6,7 +6,7 @@ export interface Workspace {
   updatedAt: string;
   userId?: string;
   companyId?: string;
-  documentsCount?: number;
+  documentCount?: number;
   jobsCount?: number;
 }
 

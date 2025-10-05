@@ -29,14 +29,14 @@ export function WorkspaceCard({ workspace, onDelete, isDeleting }: WorkspaceCard
         <div className="flex flex-col flex-1 min-w-0">
           <h3 className="text-md font-semibold text-gray-900 dark:text-white group-hover:underline truncate">{workspace.name}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {workspace.documentsCount || 0} document{(workspace.documentsCount || 0) !== 1 && "s"}
+            {workspace.documentCount || 0} document{(workspace.documentCount || 0) !== 1 && "s"}
           </p>
           <p className="text-xs text-gray-400 mt-1">Created {new Date(workspace.createdAt).toLocaleDateString()}</p>
 
           {/* Stats */}
-          {(workspace.documentsCount || workspace.jobsCount) && (
+          {(workspace.documentCount || workspace.jobsCount) && (
             <div className="flex gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>📄 {workspace.documentsCount || 0} docs</span>
+              <span>📄 {workspace.documentCount || 0} docs</span>
               <span>⚡ {workspace.jobsCount || 0} jobs</span>
             </div>
           )}
