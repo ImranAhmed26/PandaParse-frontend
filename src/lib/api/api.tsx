@@ -228,7 +228,7 @@ class Api {
 
     try {
       const response = await axios.post(`${this.instance.defaults.baseURL}/auth/refresh`, {
-        refreshToken,
+        refresh_token: refreshToken,
       });
 
       const { access_token, refresh_token } = response.data;
