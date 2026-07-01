@@ -14,7 +14,7 @@ import { DocumentsPagination } from "./DocumentsPagination";
 import { WorkspacePageSkeleton } from "./WorkspacePageSkeleton";
 import type { WorkspacePageProps } from "../types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
 
 export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
   // Store state
@@ -26,6 +26,7 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
   const ui = useWorkspaceStore((state) => state.ui);
   const setShowSettings = useWorkspaceStore((state) => state.setShowSettings);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
+  const setDocuments = useWorkspaceStore((state) => state.setDocuments);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -37,7 +38,11 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
 
   // Data fetching
   const { isLoading: isLoadingWorkspace, error: workspaceError } = useWorkspaceDetails(workspaceId);
-  const { isLoading: isLoadingDocuments, data: documentsPage } = useWorkspaceDocuments({
+  const {
+    isLoading: isLoadingDocuments,
+    isFetching: isFetchingDocuments,
+    data: documentsPage,
+  } = useWorkspaceDocuments({
     workspaceId,
     page,
     limit: PAGE_SIZE,
@@ -49,13 +54,21 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
   const totalDocuments = documentsPage?.total ?? documents.length;
   const totalPages = documentsPage?.totalPages ?? 1;
 
-  // Clamp the page if the total shrinks (e.g. after deletions) so we never
-  // sit on an empty page beyond the last one.
+  // Keep the table (store) in sync with the current page's data, including
+  // cached navigations where queryFn doesn't re-run.
   useEffect(() => {
-    if (page > totalPages && totalPages >= 1) {
+    if (documentsPage?.data) {
+      setDocuments(documentsPage.data);
+    }
+  }, [documentsPage, setDocuments]);
+
+  // Clamp the page if the total shrinks (e.g. after deletions) so we never
+  // sit on an empty page beyond the last one. Don't clamp mid-fetch.
+  useEffect(() => {
+    if (!isFetchingDocuments && page > totalPages && totalPages >= 1) {
       setPage(totalPages);
     }
-  }, [page, totalPages]);
+  }, [page, totalPages, isFetchingDocuments]);
 
   // Custom hooks for complex logic
   const { hasCachedData } = useWorkspaceDataManagement(workspaceId);
@@ -154,7 +167,7 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
                   total={totalDocuments}
                   limit={PAGE_SIZE}
                   onPageChange={setPage}
-                  isLoading={isLoadingDocuments}
+                  isLoading={isFetchingDocuments}
                 />
               </>
             )}

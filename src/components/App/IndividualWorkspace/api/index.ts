@@ -39,19 +39,32 @@ export const individualWorkspaceApi = {
       // Since the backend doesn't have a dedicated workspace endpoint,
       // we'll create a workspace object by aggregating document data
 
-      // First, try to get documents to calculate stats
+      // First, try to get documents to calculate stats.
+      // The endpoint is paginated ({ data, total, ... }), but tolerate the older
+      // plain-array shape too so this doesn't break during the rollout.
       let documents: DocumentResponse[] = [];
+      let totalDocuments = 0;
       try {
-        const documentsResponse = await api.get<DocumentResponse[]>(`/documents/workspace/${workspaceId}`);
-        documents = documentsResponse.data;
+        const documentsResponse = await api.get<DocumentResponse[] | BackendPaginatedDocuments>(
+          `/documents/workspace/${workspaceId}`
+        );
+        const body = documentsResponse.data;
+        if (Array.isArray(body)) {
+          documents = body;
+          totalDocuments = body.length;
+        } else {
+          documents = body?.data ?? [];
+          totalDocuments = body?.total ?? documents.length;
+        }
       } catch (docError) {
         console.warn(`🏢 [Individual Workspace API] Could not fetch documents for stats:`, docError);
         // Continue with empty documents array
       }
 
-      // Calculate stats from documents
+      // Calculate stats from documents. Note: status counts reflect the first
+      // page of documents when paginated; totalDocuments uses the real total.
       const stats: WorkspaceStats = {
-        totalDocuments: documents.length,
+        totalDocuments,
         processingDocuments: documents.filter((doc) => doc.status === "UNPROCESSED").length,
         completedDocuments: documents.filter((doc) => doc.status === "PROCESSED").length,
         failedDocuments: documents.filter((doc) => doc.status === "FLAGGED").length,

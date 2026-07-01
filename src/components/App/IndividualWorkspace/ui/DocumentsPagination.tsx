@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 interface DocumentsPaginationProps {
   page: number;
@@ -23,10 +23,18 @@ export function DocumentsPagination({ page, totalPages, total, limit, onPageChan
 
   return (
     <div className="flex items-center justify-between gap-4 px-3 py-3 border-t border-gray-200 dark:border-gray-700">
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        Showing <span className="font-medium text-gray-900 dark:text-gray-100">{from}</span>–
-        <span className="font-medium text-gray-900 dark:text-gray-100">{to}</span> of{" "}
-        <span className="font-medium text-gray-900 dark:text-gray-100">{total}</span>
+      <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+        <span>
+          Showing <span className="font-medium text-gray-900 dark:text-gray-100">{from}</span>–
+          <span className="font-medium text-gray-900 dark:text-gray-100">{to}</span> of{" "}
+          <span className="font-medium text-gray-900 dark:text-gray-100">{total}</span>
+        </span>
+        {isLoading && (
+          <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Updating…
+          </span>
+        )}
       </p>
 
       <div className="flex items-center gap-2">
