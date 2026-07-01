@@ -87,7 +87,17 @@ export function useWorkspaceDocuments(params: GetDocumentsParams) {
       }
     },
     enabled: !!params.workspaceId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnWindowFocus: true, // refresh status when the user returns to the tab
+    // Adaptive polling: only refetch while a document is still waiting for OCR
+    // (mapped from backend UNPROCESSED -> "queued"). Terminal states
+    // (completed / failed / PAID+UNPAID -> "processing") stop the polling so we
+    // don't hammer the API forever. Also pauses automatically in background tabs.
+    refetchInterval: (query) => {
+      const docs = query.state.data?.data ?? [];
+      const hasPending = docs.some((doc) => doc.status === "queued" || doc.status === "uploading");
+      return hasPending ? 5000 : false;
+    },
     retry: (failureCount, error: any) => {
       if (error?.status === 401 || error?.status === 404) {
         return false;
