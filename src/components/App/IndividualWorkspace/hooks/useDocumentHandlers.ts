@@ -1,5 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import {
+  individualWorkspaceKeys,
   useDeleteDocument,
   useBulkDeleteDocuments,
   useDeleteAllWorkspaceDocuments,
@@ -12,7 +14,9 @@ import {
  * Centralizes document operations and reduces component complexity
  */
 export function useDocumentHandlers() {
+  const queryClient = useQueryClient();
   const documents = useWorkspaceStore((state) => state.documents);
+  const workspace = useWorkspaceStore((state) => state.workspace);
   const selectedDocuments = useWorkspaceStore((state) => state.ui.selectedDocuments);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const toggleDocumentSelection = useWorkspaceStore((state) => state.toggleDocumentSelection);
@@ -70,6 +74,15 @@ export function useDocumentHandlers() {
   const handleUploadComplete = () => {
     // Switch to documents tab after successful upload
     setActiveTab("documents");
+
+    // Uploads go through useS3Upload, which does not touch the React Query cache,
+    // so the documents list stays stale until a full reload. Invalidate the list
+    // (and workspace stats) here so the new document appears immediately.
+    const workspaceId = workspace?.id;
+    if (workspaceId) {
+      queryClient.invalidateQueries({ queryKey: individualWorkspaceKeys.documents(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: individualWorkspaceKeys.workspace(workspaceId) });
+    }
   };
 
   // Handle individual document selection toggle
