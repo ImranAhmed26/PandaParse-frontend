@@ -66,12 +66,13 @@ class TokenRefreshService {
   }
 
   /**
-   * Perform token refresh
+   * Perform token refresh. Returns true if the token was refreshed, false if
+   * the session ended (expired/invalid refresh token) and the user was logged out.
    */
-  private async performTokenRefresh(): Promise<void> {
+  private async performTokenRefresh(): Promise<boolean> {
     if (this.isRefreshing) {
       console.log("🔄 [TokenRefreshService] Refresh already in progress, skipping");
-      return;
+      return false;
     }
 
     this.isRefreshing = true;
@@ -79,9 +80,9 @@ class TokenRefreshService {
     try {
       const refreshToken = AuthStorage.getRefreshToken();
       if (!refreshToken) {
-        console.warn("🔄 [TokenRefreshService] No refresh token available");
-        authEvents.emit("TOKEN_EXPIRED", "No refresh token available");
-        return;
+        console.log("🔄 [TokenRefreshService] No refresh token available, logging out");
+        this.logout("No refresh token available");
+        return false;
       }
 
       // Use fetch directly to avoid circular dependency with API client
@@ -94,9 +95,11 @@ class TokenRefreshService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || `Token refresh failed: ${response.status}`;
-        throw new Error(errorMessage);
+        // Expired/invalid refresh token is an expected condition, not an error.
+        // Just log the user out cleanly.
+        console.log(`🔄 [TokenRefreshService] Refresh token rejected (${response.status}), logging out`);
+        this.logout("Refresh token expired");
+        return false;
       }
 
       const data = await response.json();
@@ -116,28 +119,32 @@ class TokenRefreshService {
 
       // Schedule next refresh
       this.scheduleNextRefresh();
+      return true;
     } catch (error) {
-      console.error("🔄 [TokenRefreshService] Token refresh failed:", error);
-
-      // Clear tokens and emit event
-      AuthStorage.clearAuthData();
-      authEvents.emit("TOKEN_EXPIRED", "Token refresh failed");
+      // Reaching here means a network/parsing failure (not an auth rejection).
+      // Log out to be safe.
+      console.warn("🔄 [TokenRefreshService] Token refresh request failed, logging out:", error);
+      this.logout("Token refresh failed");
+      return false;
     } finally {
       this.isRefreshing = false;
     }
   }
 
   /**
-   * Force refresh token now
+   * Clear the session and notify the app to log the user out.
+   */
+  private logout(reason: string): void {
+    this.stop();
+    AuthStorage.clearAuthData();
+    authEvents.emit("TOKEN_EXPIRED", reason);
+  }
+
+  /**
+   * Force refresh token now. Resolves to true on success, false if the user was logged out.
    */
   async forceRefresh(): Promise<boolean> {
-    try {
-      await this.performTokenRefresh();
-      return true;
-    } catch (error) {
-      console.error("🔄 [TokenRefreshService] Force refresh failed:", error);
-      return false;
-    }
+    return this.performTokenRefresh();
   }
 }
 
