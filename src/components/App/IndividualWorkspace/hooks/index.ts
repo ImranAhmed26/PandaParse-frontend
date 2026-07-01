@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { individualWorkspaceApi } from "../api";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import type { GetDocumentsParams, UploadDocumentRequest, UpdateWorkspaceRequest, ExportRequest } from "../types";
@@ -88,6 +88,10 @@ export function useWorkspaceDocuments(params: GetDocumentsParams) {
     },
     enabled: !!params.workspaceId,
     staleTime: 1000 * 30, // 30 seconds
+    // Keep showing the current page's data while the next page loads, so
+    // pagination metadata (total/totalPages) stays valid during navigation
+    // instead of momentarily collapsing to undefined.
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: true, // refresh status when the user returns to the tab
     // Adaptive polling: only refetch while a document is still waiting for OCR
     // (mapped from backend UNPROCESSED -> "queued"). Terminal states
