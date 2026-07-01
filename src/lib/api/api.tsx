@@ -207,11 +207,13 @@ class Api {
   }
 
   private shouldRetry(error: AxiosError): boolean {
-    // Retry on network errors, timeouts, and 5xx server errors
+    // Only retry genuine transport failures here. 5xx retries are intentionally
+    // NOT handled at this layer: React Query already retries failed queries with
+    // backoff, and retrying 5xx in both places multiplies requests (~4x4) and can
+    // hammer a backend that is mid-deploy/recovering.
     return (
       !error.response || // Network error
-      error.code === "ECONNABORTED" || // Timeout
-      (error.response.status >= 500 && error.response.status < 600) // Server errors
+      error.code === "ECONNABORTED" // Timeout
     );
   }
 
@@ -419,7 +421,7 @@ class Api {
 // Create API instance with validated environment configuration
 const api = new Api({
   baseURL: env.apiUrl,
-  retries: 3,
+  retries: 2, // transport-level retries only (network/timeout); see shouldRetry
   retryDelay: 1000, // 1 second base delay
 });
 

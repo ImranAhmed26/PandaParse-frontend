@@ -15,8 +15,10 @@ const queryClient = new QueryClient({
         if (error?.status >= 400 && error?.status < 500) {
           return false;
         }
-        return failureCount < 3;
+        return failureCount < 2;
       },
+      // Exponential backoff (capped) so a struggling backend gets breathing room
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 15000),
     },
     mutations: {
       retry: (failureCount, error: any) => {
