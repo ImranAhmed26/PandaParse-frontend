@@ -14,7 +14,7 @@ import { DocumentsPagination } from "./DocumentsPagination";
 import { WorkspacePageSkeleton } from "./WorkspacePageSkeleton";
 import type { WorkspacePageProps } from "../types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
 
 export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
   // Store state
