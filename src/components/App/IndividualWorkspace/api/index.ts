@@ -20,6 +20,15 @@ import type {
 
 // Import backend types from upload API
 
+// Shape returned by GET /documents/workspace/:workspaceId (paginated)
+interface BackendPaginatedDocuments {
+  data: DocumentResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 // Individual Workspace API Functions
 export const individualWorkspaceApi = {
   // Get workspace details by ID
@@ -148,10 +157,11 @@ export const individualWorkspaceApi = {
       const queryString = queryParams.toString();
       const url = `/documents/workspace/${params.workspaceId}${queryString ? `?${queryString}` : ""}`;
 
-      const response = await api.get<DocumentResponse[]>(url);
+      const response = await api.get<BackendPaginatedDocuments>(url);
+      const { data: rawDocuments, total, page, limit, totalPages } = response.data;
 
       // Transform backend DocumentResponse to frontend Document format
-      const documents: Document[] = response.data.map((doc) => ({
+      const documents: Document[] = rawDocuments.map((doc) => ({
         id: doc.id,
         filename: doc.fileName,
         originalName: doc.fileName,
@@ -173,12 +183,7 @@ export const individualWorkspaceApi = {
         ocrResults: undefined, // OCR results are fetched separately
       }));
 
-      // Since backend doesn't provide pagination info, we'll simulate it
-      const total = documents.length;
-      const page = params.page || 1;
-      const limit = params.limit || 20;
-
-      console.log(`🏢 [Individual Workspace API] Documents fetched: ${documents.length}`);
+      console.log(`🏢 [Individual Workspace API] Documents fetched: ${documents.length} of ${total} (page ${page}/${totalPages})`);
 
       return {
         data: {
@@ -186,7 +191,7 @@ export const individualWorkspaceApi = {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit),
+          totalPages,
         },
         success: true,
         status: 200,
