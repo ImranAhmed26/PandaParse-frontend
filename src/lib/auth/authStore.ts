@@ -94,7 +94,6 @@ export const useAuthStore = create<AuthState>()(
       initializeAuth: () => {
         try {
           const { user: storedUser } = AuthStorage.getAuthData();
-          const tokenInfo = AuthStorage.getTokenExpirationInfo();
 
           if (storedUser && AuthStorage.isAuthenticated()) {
             set({
