@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { useWorkspaceDetails, useWorkspaceDocuments } from "../hooks";
@@ -9,8 +10,11 @@ import { WorkspaceHeader } from "./WorkspaceHeader";
 import { TabNavigation } from "./TabNavigation";
 import { UploadZone } from "./UploadZone";
 import { DocumentTable } from "./DocumentTable";
+import { DocumentsPagination } from "./DocumentsPagination";
 import { WorkspacePageSkeleton } from "./WorkspacePageSkeleton";
 import type { WorkspacePageProps } from "../types";
+
+const PAGE_SIZE = 20;
 
 export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
   // Store state
@@ -23,16 +27,35 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
   const setShowSettings = useWorkspaceStore((state) => state.setShowSettings);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+
+  // Reset to the first page whenever the query criteria change
+  useEffect(() => {
+    setPage(1);
+  }, [filters, search, sort]);
+
   // Data fetching
   const { isLoading: isLoadingWorkspace, error: workspaceError } = useWorkspaceDetails(workspaceId);
-  const { isLoading: isLoadingDocuments } = useWorkspaceDocuments({
+  const { isLoading: isLoadingDocuments, data: documentsPage } = useWorkspaceDocuments({
     workspaceId,
-    page: 1,
-    limit: 50,
+    page,
+    limit: PAGE_SIZE,
     filters,
     search,
     sort,
   });
+
+  const totalDocuments = documentsPage?.total ?? documents.length;
+  const totalPages = documentsPage?.totalPages ?? 1;
+
+  // Clamp the page if the total shrinks (e.g. after deletions) so we never
+  // sit on an empty page beyond the last one.
+  useEffect(() => {
+    if (page > totalPages && totalPages >= 1) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   // Custom hooks for complex logic
   const { hasCachedData } = useWorkspaceDataManagement(workspaceId);
@@ -94,7 +117,7 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
         <WorkspaceHeader workspace={workspace} onSettingsClick={handleSettingsClick} />
 
         <div className="border border-gray-300 dark:border-gray-700 rounded-xl">
-          <TabNavigation activeTab={ui.activeTab} onTabChange={handleTabChange} documentCount={documents.length} />
+          <TabNavigation activeTab={ui.activeTab} onTabChange={handleTabChange} documentCount={totalDocuments} />
           <div className="p-2">
             {ui.activeTab === "upload" && (
               <div className="space-y-6">
@@ -107,23 +130,33 @@ export function WorkspacePage({ workspaceId }: WorkspacePageProps) {
             )}
 
             {ui.activeTab === "documents" && (
-              <DocumentTable
-                documents={documents}
-                selectedDocuments={ui.selectedDocuments}
-                onDocumentSelect={documentHandlers.handleDocumentSelect}
-                onDocumentToggle={documentHandlers.handleDocumentToggle}
-                onSelectAll={documentHandlers.handleSelectAll}
-                allSelected={allSelected}
-                someSelected={someSelected}
-                onDocumentDelete={documentHandlers.handleDocumentDelete}
-                onDocumentReprocess={documentHandlers.handleDocumentReprocess}
-                onDocumentDownload={documentHandlers.handleDocumentDownload}
-                onBulkDelete={documentHandlers.handleBulkDelete}
-                onBulkReprocess={documentHandlers.handleBulkReprocess}
-                onBulkExport={documentHandlers.handleBulkExport}
-                onExportAll={documentHandlers.handleExportAll}
-                isLoading={isLoadingDocuments}
-              />
+              <>
+                <DocumentTable
+                  documents={documents}
+                  selectedDocuments={ui.selectedDocuments}
+                  onDocumentSelect={documentHandlers.handleDocumentSelect}
+                  onDocumentToggle={documentHandlers.handleDocumentToggle}
+                  onSelectAll={documentHandlers.handleSelectAll}
+                  allSelected={allSelected}
+                  someSelected={someSelected}
+                  onDocumentDelete={documentHandlers.handleDocumentDelete}
+                  onDocumentReprocess={documentHandlers.handleDocumentReprocess}
+                  onDocumentDownload={documentHandlers.handleDocumentDownload}
+                  onBulkDelete={documentHandlers.handleBulkDelete}
+                  onBulkReprocess={documentHandlers.handleBulkReprocess}
+                  onBulkExport={documentHandlers.handleBulkExport}
+                  onExportAll={documentHandlers.handleExportAll}
+                  isLoading={isLoadingDocuments}
+                />
+                <DocumentsPagination
+                  page={page}
+                  totalPages={totalPages}
+                  total={totalDocuments}
+                  limit={PAGE_SIZE}
+                  onPageChange={setPage}
+                  isLoading={isLoadingDocuments}
+                />
+              </>
             )}
           </div>
         </div>
