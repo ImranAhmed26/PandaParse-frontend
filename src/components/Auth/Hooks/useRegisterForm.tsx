@@ -32,19 +32,9 @@ export function useRegisterForm() {
   // Direct registration mutation - simple and straightforward
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      console.log("🔥 Register mutation: Starting registration with data:", data);
-      try {
-        const result = await authApi.register(data);
-        console.log("🔥 Register mutation: API call successful:", result);
-        return result;
-      } catch (error) {
-        console.error("🔥 Register mutation: API call failed:", error);
-        throw error;
-      }
+      return await authApi.register(data);
     },
     onSuccess: (response) => {
-      console.log("✅ Registration successful:", response.data.user);
-
       // Use auth context to handle login after registration
       login(
         {
@@ -62,7 +52,7 @@ export function useRegisterForm() {
       );
     },
     onError: (error: any) => {
-      console.error("❌ Registration failed:", error);
+      console.error("Registration failed:", error);
     },
   });
 
@@ -78,8 +68,6 @@ export function useRegisterForm() {
   });
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    console.log("🔥 Register form submitted with data:", data);
-
     // Transform form data to API request format
     const registerData: RegisterRequest = {
       name: data.name,
@@ -88,11 +76,10 @@ export function useRegisterForm() {
       companyName: data.companyName || undefined,
     };
 
-    console.log("🔥 Calling register mutation...");
     try {
       await registerMutation.mutateAsync(registerData);
     } catch (error) {
-      console.error("🔥 Register form error:", error);
+      console.error("Register form error:", error);
     }
   });
 

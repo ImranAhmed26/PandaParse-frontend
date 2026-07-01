@@ -43,8 +43,6 @@ export const authApi = {
   // Register new user
   register: async (data: RegisterRequest): Promise<ApiResponse<AuthResponse>> => {
     const response = await api.post<AuthResponse>("/auth/register", data);
-    console.log(" RES", response);
-    console.log("Data ", data);
 
     // Note: Token storage is now handled by the auth context
     // The forms will handle storing tokens and user data
@@ -54,21 +52,12 @@ export const authApi = {
 
   // Login user
   login: async (data: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
-    console.log("🌟 authApi.login: Called with data:", data);
+    const response = await api.post<AuthResponse>("/auth/login", data);
 
-    try {
-      console.log("🌟 authApi.login: Making API call to /auth/login");
-      const response = await api.post<AuthResponse>("/auth/login", data);
-      console.log("🌟 authApi.login: API response:", response);
+    // Note: Token storage is now handled by the auth context
+    // The forms will handle storing tokens and user data
 
-      // Note: Token storage is now handled by the auth context
-      // The forms will handle storing tokens and user data
-
-      return response;
-    } catch (error) {
-      console.error("🌟 authApi.login: API call failed:", error);
-      throw error;
-    }
+    return response;
   },
 
   // Logout user
@@ -95,7 +84,7 @@ export const authApi = {
     }
 
     const response = await api.post<RefreshTokenResponse>("/auth/refresh", {
-      refreshToken,
+      refresh_token: refreshToken,
     });
 
     // Update stored tokens

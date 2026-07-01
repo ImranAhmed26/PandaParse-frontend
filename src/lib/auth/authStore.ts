@@ -105,15 +105,6 @@ export const useAuthStore = create<AuthState>()(
 
             // Start token refresh service for authenticated users
             tokenRefreshService.start();
-
-            // Log token status for debugging
-            if (tokenInfo) {
-              console.log("🔐 AuthStore: Token status:", {
-                isExpired: tokenInfo.isExpired,
-                willExpireSoon: tokenInfo.willExpireSoon,
-                timeUntilExpiration: Math.round(tokenInfo.timeUntilExpiration / 1000 / 60) + " minutes",
-              });
-            }
           } else {
             // Clear invalid/expired auth data
             console.log("🔐 AuthStore: Clearing invalid/expired auth data");
