@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useDocumentOcr } from "../hooks";
+import { DocumentDataPanel } from "./DocumentDataPanel";
 
 // react-pdf / pdf.js touch browser-only APIs — load the viewer client-side only.
 const DocumentFileViewer = dynamic(
@@ -116,12 +117,18 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           />
         )}
 
-        {/* Right: extracted data — Phase 3 */}
-        <ViewerMessagePane
-          icon={<PanelRight className="h-8 w-8" />}
-          title="Extracted data"
-          subtitle="Structured fields, confidence, and inline editing appear here."
-        />
+        {/* Right: extracted data */}
+        {isLoading ? (
+          <ViewerLoadingPane />
+        ) : isError ? (
+          <ViewerMessagePane
+            icon={<PanelRight className="h-8 w-8" />}
+            title="Data unavailable"
+            subtitle="Couldn't load the extracted data for this document."
+          />
+        ) : (
+          <DocumentDataPanel result={data?.result ?? null} parsed={data?.parsed ?? null} />
+        )}
       </div>
     </div>
   );
