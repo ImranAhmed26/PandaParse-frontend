@@ -1,0 +1,118 @@
+"use client";
+
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, PanelRight } from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { useDocument } from "../hooks";
+
+interface DocumentEditorProps {
+  workspaceId: string;
+  documentId: string;
+}
+
+/**
+ * Full-page Document Editor / Review shell.
+ *
+ * Phase 1 delivers the route, workspace-aware navigation, and the two-pane layout
+ * scaffold. Later phases fill the panes: the file viewer (left), the extracted-data
+ * panel with confidence + inline editing (right), bounding-box mapping, cross-document
+ * prev/next, and export. Controls that belong to later phases are rendered disabled so
+ * the layout is complete and stable.
+ */
+export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps) {
+  const { data: document, isLoading } = useDocument(documentId);
+  const title = document?.originalName ?? document?.filename ?? "Document";
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header: back + title */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href={`/workspace/${workspaceId}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors border border-gray-300 dark:border-gray-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Workspace
+          </Link>
+          <div className="min-w-0">
+            <h1
+              className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate"
+              title={title}
+            >
+              {isLoading ? "Loading…" : title}
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Document review &amp; correction</p>
+          </div>
+        </div>
+
+        {/* Export — wired in a later phase */}
+        <button
+          type="button"
+          disabled
+          title="Export (coming soon)"
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 rounded-md cursor-not-allowed self-start sm:self-auto"
+        >
+          <Download className="h-4 w-4" />
+          Export
+        </button>
+      </div>
+
+      {/* Toolbar: cross-document navigation — wired in a later phase */}
+      <div className="flex items-center justify-between border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2">
+        <button
+          type="button"
+          disabled
+          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Previous
+        </button>
+        <span className="text-xs text-gray-500 dark:text-gray-400">Document — of —</span>
+        <button
+          type="button"
+          disabled
+          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Two-pane layout: viewer (left) + extracted data (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <EditorPanePlaceholder
+          icon={<FileText className="h-8 w-8" />}
+          title="Document viewer"
+          subtitle="The PDF / image preview appears here."
+        />
+        <EditorPanePlaceholder
+          icon={<PanelRight className="h-8 w-8" />}
+          title="Extracted data"
+          subtitle="Structured fields, confidence, and inline editing appear here."
+        />
+      </div>
+    </div>
+  );
+}
+
+function EditorPanePlaceholder({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="min-h-[70vh] border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/40 flex items-center justify-center">
+      <div className="text-center px-6">
+        <div className="mx-auto mb-3 text-gray-300 dark:text-gray-600 flex items-center justify-center">
+          {icon}
+        </div>
+        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</h2>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 max-w-xs">{subtitle}</p>
+      </div>
+    </div>
+  );
+}

@@ -35,6 +35,6 @@ export { DocumentTable } from "./ui/DocumentTable";
 export { UploadZone } from "./ui/UploadZone";
 export { TabNavigation } from "./ui/TabNavigation";
 export type { TabType } from "./ui/TabNavigation";
+export { DocumentEditor } from "./ui/DocumentEditor";
 // Future components to be implemented:
-// - DocumentViewer: Modal for viewing document details and OCR results
 // - ProcessingQueue: Component for monitoring document processing status
