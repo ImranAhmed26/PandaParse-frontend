@@ -16,6 +16,7 @@ import type {
   ExportRequest,
   BulkDeleteResponse,
   WorkspaceDeleteResponse,
+  DocumentOcrResponse,
 } from "../types";
 
 // Import backend types from upload API
@@ -258,6 +259,22 @@ export const individualWorkspaceApi = {
       console.error(`🏢 [Individual Workspace API] Error fetching document:`, error);
       throw new Error(`Failed to fetch document: ${error.message}`);
     }
+  },
+
+  // Get the bundled Document Editor payload: presigned file URL + editable result
+  // + raw parsed Textract JSON. Backend returns the contract shape directly, so this
+  // is a thin passthrough (no transform).
+  getDocumentOcr: async (documentId: string): Promise<ApiResponse<DocumentOcrResponse>> => {
+    console.log(`🏢 [Individual Workspace API] Fetching document OCR payload: ${documentId}`);
+
+    const response = await api.get<DocumentOcrResponse>(`/documents/${documentId}/ocr`);
+
+    return {
+      data: response.data,
+      success: true,
+      status: 200,
+      message: "Document OCR payload retrieved successfully",
+    };
   },
 
   // Get OCR results for a document

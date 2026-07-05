@@ -1,8 +1,26 @@
 "use client";
 
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, PanelRight } from "lucide-react";
+import dynamic from "next/dynamic";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileWarning,
+  Loader2,
+  PanelRight,
+} from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { useDocument } from "../hooks";
+import { useDocumentOcr } from "../hooks";
+
+// react-pdf / pdf.js touch browser-only APIs — load the viewer client-side only.
+const DocumentFileViewer = dynamic(
+  () => import("./DocumentFileViewer").then((m) => m.DocumentFileViewer),
+  {
+    ssr: false,
+    loading: () => <ViewerLoadingPane />,
+  },
+);
 
 interface DocumentEditorProps {
   workspaceId: string;
@@ -10,17 +28,16 @@ interface DocumentEditorProps {
 }
 
 /**
- * Full-page Document Editor / Review shell.
+ * Full-page Document Editor / Review.
  *
- * Phase 1 delivers the route, workspace-aware navigation, and the two-pane layout
- * scaffold. Later phases fill the panes: the file viewer (left), the extracted-data
- * panel with confidence + inline editing (right), bounding-box mapping, cross-document
- * prev/next, and export. Controls that belong to later phases are rendered disabled so
- * the layout is complete and stable.
+ * Phase 2 adds the left-pane document viewer (PDF/image) backed by the single
+ * `GET /documents/:id/ocr` payload. The right-pane extracted-data panel, bounding-box
+ * overlay, inline editing, cross-document prev/next, and export arrive in later phases;
+ * their controls are rendered disabled so the layout stays stable.
  */
 export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps) {
-  const { data: document, isLoading } = useDocument(documentId);
-  const title = document?.originalName ?? document?.filename ?? "Document";
+  const { data, isLoading, isError } = useDocumentOcr(documentId);
+  const title = data?.document.fileName ?? "Document";
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,12 +97,27 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
 
       {/* Two-pane layout: viewer (left) + extracted data (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <EditorPanePlaceholder
-          icon={<FileText className="h-8 w-8" />}
-          title="Document viewer"
-          subtitle="The PDF / image preview appears here."
-        />
-        <EditorPanePlaceholder
+        {/* Left: document viewer */}
+        {isLoading ? (
+          <ViewerLoadingPane />
+        ) : isError ? (
+          <ViewerMessagePane
+            icon={<FileWarning className="h-8 w-8" />}
+            title="Couldn't load this document"
+            subtitle="Please go back and try again."
+          />
+        ) : data?.fileUrl ? (
+          <DocumentFileViewer fileUrl={data.fileUrl} fileName={data.document.fileName} />
+        ) : (
+          <ViewerMessagePane
+            icon={<FileWarning className="h-8 w-8" />}
+            title="File unavailable"
+            subtitle="No file is associated with this document."
+          />
+        )}
+
+        {/* Right: extracted data — Phase 3 */}
+        <ViewerMessagePane
           icon={<PanelRight className="h-8 w-8" />}
           title="Extracted data"
           subtitle="Structured fields, confidence, and inline editing appear here."
@@ -95,7 +127,15 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
   );
 }
 
-function EditorPanePlaceholder({
+function ViewerLoadingPane() {
+  return (
+    <div className="h-[75vh] border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/40 flex items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-gray-400 dark:text-gray-500" />
+    </div>
+  );
+}
+
+function ViewerMessagePane({
   icon,
   title,
   subtitle,
@@ -105,7 +145,7 @@ function EditorPanePlaceholder({
   subtitle: string;
 }) {
   return (
-    <div className="min-h-[70vh] border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/40 flex items-center justify-center">
+    <div className="h-[75vh] border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/40 flex items-center justify-center">
       <div className="text-center px-6">
         <div className="mx-auto mb-3 text-gray-300 dark:text-gray-600 flex items-center justify-center">
           {icon}

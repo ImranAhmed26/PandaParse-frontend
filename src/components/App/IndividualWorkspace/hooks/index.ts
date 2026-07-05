@@ -12,6 +12,7 @@ export const individualWorkspaceKeys = {
     [...individualWorkspaceKeys.documents(workspaceId), "list", params] as const,
   document: (id: string) => [...individualWorkspaceKeys.all, "document", id] as const,
   ocrResults: (documentId: string) => [...individualWorkspaceKeys.all, "ocr", documentId] as const,
+  documentOcr: (documentId: string) => [...individualWorkspaceKeys.all, "document-ocr", documentId] as const,
   processingJobs: (workspaceId: string) => [...individualWorkspaceKeys.all, "jobs", workspaceId] as const,
 };
 
@@ -128,6 +129,32 @@ export function useDocument(documentId: string) {
     staleTime: 1000 * 60 * 5, // 5 minutes
     meta: {
       errorMessage: "Failed to load document",
+    },
+  });
+}
+
+// Hook to fetch the bundled Document Editor payload (file URL + result + parsed OCR).
+// This is the editor's single data source across all editor phases.
+export function useDocumentOcr(documentId: string) {
+  return useQuery({
+    queryKey: individualWorkspaceKeys.documentOcr(documentId),
+    queryFn: async () => {
+      const response = await individualWorkspaceApi.getDocumentOcr(documentId);
+      return response.data;
+    },
+    enabled: !!documentId,
+    // Keep below the presigned file-URL TTL (15 min) so the viewer never gets a
+    // stale/expired URL from cache. Don't refetch on focus — that would reload the file.
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error: any) => {
+      if (error?.status === 401 || error?.status === 403 || error?.status === 404) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    meta: {
+      errorMessage: "Failed to load document data",
     },
   });
 }
