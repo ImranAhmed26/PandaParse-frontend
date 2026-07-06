@@ -25,6 +25,8 @@ export {
   useReprocessDocument,
   useExportDocuments,
   useUpdateOCRResults,
+  useUpdateDocumentResult,
+  useUpdateDocumentResultStatus,
   individualWorkspaceKeys,
 } from "./hooks";
 

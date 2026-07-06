@@ -11,7 +11,7 @@ import {
   Loader2,
   PanelRight,
 } from "lucide-react";
-import { Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useDocumentOcr } from "../hooks";
 import { normalizeParsedOcr } from "../lib/parseOcr";
 import { DocumentDataPanel } from "./DocumentDataPanel";
@@ -63,18 +63,27 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
     setHoveredFieldId(null);
   }, [documentId]);
 
+  // Unsaved-changes guard for the back button (panel reports its dirty state).
+  const router = useRouter();
+  const [dirty, setDirty] = useState(false);
+  const handleBack = () => {
+    if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
+    router.push(`/workspace/${workspaceId}`);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header: back + title */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href={`/workspace/${workspaceId}`}
+          <button
+            type="button"
+            onClick={handleBack}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors border border-gray-300 dark:border-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Workspace
-          </Link>
+          </button>
           <div className="min-w-0">
             <h1
               className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate"
@@ -161,10 +170,12 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           <DocumentDataPanel
             ocr={ocr}
             result={data?.result ?? null}
+            documentId={documentId}
             selectedFieldId={selectedFieldId}
             hoveredFieldId={hoveredFieldId}
             onSelectField={setSelectedFieldId}
             onHoverField={setHoveredFieldId}
+            onDirtyChange={setDirty}
           />
         )}
       </div>

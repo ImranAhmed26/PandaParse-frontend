@@ -1,7 +1,14 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { individualWorkspaceApi } from "../api";
 import { useWorkspaceStore } from "../store/workspaceStore";
-import type { GetDocumentsParams, UploadDocumentRequest, UpdateWorkspaceRequest, ExportRequest } from "../types";
+import type {
+  GetDocumentsParams,
+  UploadDocumentRequest,
+  UpdateWorkspaceRequest,
+  ExportRequest,
+  DocumentOcrResponse,
+  UpdateDocumentResultPayload,
+} from "../types";
 
 // Query Keys - centralized for better cache management
 export const individualWorkspaceKeys = {
@@ -155,6 +162,52 @@ export function useDocumentOcr(documentId: string) {
     },
     meta: {
       errorMessage: "Failed to load document data",
+    },
+  });
+}
+
+// Hook to persist edited summary / line items. Patches the documentOcr cache from the
+// response so the editor reflects saved values without re-reading the parsed S3 JSON.
+export function useUpdateDocumentResult(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { resultId: string; payload: UpdateDocumentResultPayload }) => {
+      const response = await individualWorkspaceApi.updateDocumentResult(vars.resultId, vars.payload);
+      return response.data;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<DocumentOcrResponse>(
+        individualWorkspaceKeys.documentOcr(documentId),
+        (old) => (old ? { ...old, result: updated } : old),
+      );
+    },
+    meta: {
+      successMessage: "Changes saved",
+      errorMessage: "Failed to save changes",
+    },
+  });
+}
+
+// Hook to advance the review workflow (draft -> reviewed -> approved).
+export function useUpdateDocumentResultStatus(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { resultId: string; status: string; approvedById?: string }) => {
+      const response = await individualWorkspaceApi.updateDocumentResultStatus(
+        vars.resultId,
+        vars.status,
+        vars.approvedById,
+      );
+      return response.data;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<DocumentOcrResponse>(
+        individualWorkspaceKeys.documentOcr(documentId),
+        (old) => (old ? { ...old, result: updated } : old),
+      );
+    },
+    meta: {
+      errorMessage: "Failed to update status",
     },
   });
 }

@@ -17,7 +17,28 @@ import type {
   BulkDeleteResponse,
   WorkspaceDeleteResponse,
   DocumentOcrResponse,
+  DocumentResultData,
+  UpdateDocumentResultPayload,
 } from "../types";
+
+// Map the backend DocumentResultResponseDto to our DocumentResultData shape.
+function mapDocumentResult(r: any): DocumentResultData {
+  return {
+    id: r.id,
+    status: r.status,
+    summary: r.summary ?? null,
+    items: (r.items ?? []).map((it: any) => ({
+      id: it.id,
+      name: it.name ?? null,
+      quantity: it.quantity ?? null,
+      unitPrice: it.unitPrice ?? null,
+      total: it.total ?? null,
+      tax: it.tax ?? null,
+    })),
+    reviewedAt: r.reviewedAt ?? null,
+    approvedAt: r.approvedAt ?? null,
+  };
+}
 
 // Import backend types from upload API
 
@@ -274,6 +295,40 @@ export const individualWorkspaceApi = {
       success: true,
       status: 200,
       message: "Document OCR payload retrieved successfully",
+    };
+  },
+
+  // Persist edited summary / line items for a document result.
+  updateDocumentResult: async (
+    resultId: string,
+    payload: UpdateDocumentResultPayload,
+  ): Promise<ApiResponse<DocumentResultData>> => {
+    console.log(`🏢 [Individual Workspace API] Updating document result: ${resultId}`);
+    const response = await api.patch<any>(`/document-results/${resultId}`, payload);
+    return {
+      data: mapDocumentResult(response.data),
+      success: true,
+      status: 200,
+      message: "Document result updated successfully",
+    };
+  },
+
+  // Update the review status (draft -> reviewed -> approved) of a document result.
+  updateDocumentResultStatus: async (
+    resultId: string,
+    status: string,
+    approvedById?: string,
+  ): Promise<ApiResponse<DocumentResultData>> => {
+    console.log(`🏢 [Individual Workspace API] Updating result status: ${resultId} -> ${status}`);
+    const response = await api.patch<any>(`/document-results/${resultId}/status`, {
+      status,
+      ...(approvedById ? { approvedById } : {}),
+    });
+    return {
+      data: mapDocumentResult(response.data),
+      success: true,
+      status: 200,
+      message: "Document result status updated successfully",
     };
   },
 
