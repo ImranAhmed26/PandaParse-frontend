@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FileQuestion } from "lucide-react";
-import { normalizeParsedOcr } from "../lib/parseOcr";
-import type { DocumentResultData, DocumentResultItem, OcrField, OcrTable } from "../types";
+import type { DocumentResultData, DocumentResultItem, OcrField, OcrTable, ParsedOcr } from "../types";
 
 interface DocumentDataPanelProps {
+  ocr: ParsedOcr | null;
   result: DocumentResultData | null;
-  parsed: unknown;
+  selectedFieldId: string | null;
+  hoveredFieldId: string | null;
+  onSelectField: (id: string) => void;
+  onHoverField: (id: string | null) => void;
 }
 
 type ConfidenceLevel = "high" | "medium" | "low" | "unknown";
@@ -43,11 +46,18 @@ function humanizeLabel(label: string | null): string {
 
 /**
  * Right-pane extracted-data view (read-only in Phase 3): OCR fields with confidence
- * indicators, the line-item table, and any detected tables. Inline editing arrives in
- * a later phase. Falls back to the DB summary when the raw parsed JSON is unavailable.
+ * indicators, the line-item table, and any detected tables. Fields are clickable and
+ * sync with the document viewer's bounding-box overlay (Phase 4). Falls back to the DB
+ * summary when the raw parsed JSON is unavailable.
  */
-export function DocumentDataPanel({ result, parsed }: DocumentDataPanelProps) {
-  const ocr = useMemo(() => normalizeParsedOcr(parsed), [parsed]);
+export function DocumentDataPanel({
+  ocr,
+  result,
+  selectedFieldId,
+  hoveredFieldId,
+  onSelectField,
+  onHoverField,
+}: DocumentDataPanelProps) {
   const [onlyReview, setOnlyReview] = useState(false);
 
   const fields = useMemo<OcrField[]>(() => {
@@ -65,9 +75,14 @@ export function DocumentDataPanel({ result, parsed }: DocumentDataPanelProps) {
     () => fields.filter((f) => needsReview(confidenceLevel(f.confidence))).length,
     [fields],
   );
+  // Keep the selected field visible even while the "needs review" filter is on.
   const visibleFields = onlyReview
-    ? fields.filter((f) => needsReview(confidenceLevel(f.confidence)))
+    ? fields.filter((f) => needsReview(confidenceLevel(f.confidence)) || f.id === selectedFieldId)
     : fields;
+
+  const scrollSelectedIntoView = useCallback((node: HTMLDivElement | null) => {
+    node?.scrollIntoView({ block: "nearest" });
+  }, []);
 
   const hasAnything = fields.length > 0 || items.length > 0 || tables.length > 0;
 
@@ -104,9 +119,20 @@ export function DocumentDataPanel({ result, parsed }: DocumentDataPanelProps) {
                   <p className="text-xs text-gray-500 dark:text-gray-400">No fields match this filter.</p>
                 ) : (
                   <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                    {visibleFields.map((f) => (
-                      <FieldRow key={f.id} field={f} />
-                    ))}
+                    {visibleFields.map((f) => {
+                      const selected = f.id === selectedFieldId;
+                      return (
+                        <FieldRow
+                          key={f.id}
+                          field={f}
+                          selected={selected}
+                          hovered={f.id === hoveredFieldId}
+                          onSelect={onSelectField}
+                          onHover={onHoverField}
+                          rowRef={selected ? scrollSelectedIntoView : undefined}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </Section>
@@ -141,14 +167,46 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function FieldRow({ field }: { field: OcrField }) {
+function FieldRow({
+  field,
+  selected,
+  hovered,
+  onSelect,
+  onHover,
+  rowRef,
+}: {
+  field: OcrField;
+  selected: boolean;
+  hovered: boolean;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+  rowRef?: (node: HTMLDivElement | null) => void;
+}) {
   const level = confidenceLevel(field.confidence);
   const review = needsReview(level);
+  const locatable = !!field.box;
   return (
     <div
-      className={`flex items-start justify-between gap-3 py-2 pl-2 ${
-        review ? "border-l-2 border-red-400 dark:border-red-500/70" : "border-l-2 border-transparent"
-      }`}
+      ref={rowRef}
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(field.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(field.id);
+        }
+      }}
+      onMouseEnter={() => onHover(field.id)}
+      onMouseLeave={() => onHover(null)}
+      title={locatable ? "Click to locate on the document" : undefined}
+      className={`flex items-start justify-between gap-3 py-2 pl-2 pr-1 cursor-pointer rounded-sm outline-none border-l-2 transition-colors focus-visible:ring-1 focus-visible:ring-indigo-400 ${
+        selected
+          ? "bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-700"
+          : hovered
+            ? "bg-gray-50 dark:bg-gray-700/40"
+            : ""
+      } ${review ? "border-red-400 dark:border-red-500/70" : "border-transparent"}`}
     >
       <div className="min-w-0 flex-1">
         <p className="text-xs text-gray-500 dark:text-gray-400">{humanizeLabel(field.label)}</p>

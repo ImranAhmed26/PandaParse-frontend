@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowLeft,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useDocumentOcr } from "../hooks";
+import { normalizeParsedOcr } from "../lib/parseOcr";
 import { DocumentDataPanel } from "./DocumentDataPanel";
 
 // react-pdf / pdf.js touch browser-only APIs — load the viewer client-side only.
@@ -39,6 +41,21 @@ interface DocumentEditorProps {
 export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps) {
   const { data, isLoading, isError } = useDocumentOcr(documentId);
   const title = data?.document.fileName ?? "Document";
+
+  // Normalize once here so the viewer overlay and the data panel share the exact same
+  // fields (and field ids), which is what makes selection sync work.
+  const ocr = useMemo(() => normalizeParsedOcr(data?.parsed ?? null), [data?.parsed]);
+
+  // Shared selection between the viewer overlay and the data panel — lifted here so both
+  // stay in sync. Local state; no global store needed.
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [hoveredFieldId, setHoveredFieldId] = useState<string | null>(null);
+
+  // Reset selection when navigating to a different document.
+  useEffect(() => {
+    setSelectedFieldId(null);
+    setHoveredFieldId(null);
+  }, [documentId]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,7 +125,15 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
             subtitle="Please go back and try again."
           />
         ) : data?.fileUrl ? (
-          <DocumentFileViewer fileUrl={data.fileUrl} fileName={data.document.fileName} />
+          <DocumentFileViewer
+            fileUrl={data.fileUrl}
+            fileName={data.document.fileName}
+            fields={ocr?.fields ?? []}
+            selectedFieldId={selectedFieldId}
+            hoveredFieldId={hoveredFieldId}
+            onSelectField={setSelectedFieldId}
+            onHoverField={setHoveredFieldId}
+          />
         ) : (
           <ViewerMessagePane
             icon={<FileWarning className="h-8 w-8" />}
@@ -127,7 +152,14 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
             subtitle="Couldn't load the extracted data for this document."
           />
         ) : (
-          <DocumentDataPanel result={data?.result ?? null} parsed={data?.parsed ?? null} />
+          <DocumentDataPanel
+            ocr={ocr}
+            result={data?.result ?? null}
+            selectedFieldId={selectedFieldId}
+            hoveredFieldId={hoveredFieldId}
+            onSelectField={setSelectedFieldId}
+            onHoverField={setHoveredFieldId}
+          />
         )}
       </div>
     </div>
