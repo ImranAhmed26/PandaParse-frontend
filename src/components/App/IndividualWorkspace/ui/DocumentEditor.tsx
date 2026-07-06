@@ -46,6 +46,12 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
   // fields (and field ids), which is what makes selection sync work.
   const ocr = useMemo(() => normalizeParsedOcr(data?.parsed ?? null), [data?.parsed]);
 
+  // Boxes drawn on the document = summary fields + line-item rows (both selectable).
+  const overlayFields = useMemo(
+    () => (ocr ? [...ocr.fields, ...ocr.lineItems] : []),
+    [ocr],
+  );
+
   // Shared selection between the viewer overlay and the data panel — lifted here so both
   // stay in sync. Local state; no global store needed.
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
@@ -128,7 +134,7 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           <DocumentFileViewer
             fileUrl={data.fileUrl}
             fileName={data.document.fileName}
-            fields={ocr?.fields ?? []}
+            fields={overlayFields}
             selectedFieldId={selectedFieldId}
             hoveredFieldId={hoveredFieldId}
             onSelectField={setSelectedFieldId}

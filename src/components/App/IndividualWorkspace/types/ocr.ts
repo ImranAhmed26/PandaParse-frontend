@@ -43,6 +43,12 @@ export interface ParsedOcr {
   pageCount: number;
   fields: OcrField[];
   tables: OcrTable[];
+  /**
+   * One entry per detected expense line item, in the same order as the DB result
+   * items — each carries the row's bounding box (Textract EXPENSE_ROW) so line-item
+   * rows can be located on the document. Empty for document-analysis results.
+   */
+  lineItems: OcrField[];
 }
 
 /** Editable line item (mirrors the backend InvoiceItem). */

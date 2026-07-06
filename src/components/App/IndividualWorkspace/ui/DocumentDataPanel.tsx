@@ -80,9 +80,11 @@ export function DocumentDataPanel({
     ? fields.filter((f) => needsReview(confidenceLevel(f.confidence)) || f.id === selectedFieldId)
     : fields;
 
-  const scrollSelectedIntoView = useCallback((node: HTMLDivElement | null) => {
+  const scrollSelectedIntoView = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView({ block: "nearest" });
   }, []);
+
+  const lineItemFields = ocr?.lineItems ?? [];
 
   const hasAnything = fields.length > 0 || items.length > 0 || tables.length > 0;
 
@@ -140,7 +142,14 @@ export function DocumentDataPanel({
 
             {items.length > 0 && (
               <Section title={`Line items (${items.length})`}>
-                <LineItemsTable items={items} />
+                <LineItemsTable
+                  items={items}
+                  lineItemFields={lineItemFields}
+                  selectedFieldId={selectedFieldId}
+                  onSelectField={onSelectField}
+                  onHoverField={onHoverField}
+                  rowRefForId={scrollSelectedIntoView}
+                />
               </Section>
             )}
 
@@ -180,7 +189,7 @@ function FieldRow({
   hovered: boolean;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
-  rowRef?: (node: HTMLDivElement | null) => void;
+  rowRef?: (node: HTMLElement | null) => void;
 }) {
   const level = confidenceLevel(field.confidence);
   const review = needsReview(level);
@@ -255,7 +264,21 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function LineItemsTable({ items }: { items: DocumentResultItem[] }) {
+function LineItemsTable({
+  items,
+  lineItemFields,
+  selectedFieldId,
+  onSelectField,
+  onHoverField,
+  rowRefForId,
+}: {
+  items: DocumentResultItem[];
+  lineItemFields: OcrField[];
+  selectedFieldId: string | null;
+  onSelectField: (id: string) => void;
+  onHoverField: (id: string | null) => void;
+  rowRefForId: (node: HTMLElement | null) => void;
+}) {
   return (
     <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
       <table className="w-full text-sm">
@@ -269,15 +292,31 @@ function LineItemsTable({ items }: { items: DocumentResultItem[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-          {items.map((item, i) => (
-            <tr key={item.id ?? i} className="text-gray-900 dark:text-gray-100">
-              <td className="px-3 py-2 break-words">{item.name || <Dash />}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.quantity)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.unitPrice)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.total)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.tax)}</td>
-            </tr>
-          ))}
+          {items.map((item, i) => {
+            // Correlate each DB item with its parsed line-item box by position.
+            const field = lineItemFields[i];
+            const locatable = !!field?.box;
+            const selected = !!field && field.id === selectedFieldId;
+            return (
+              <tr
+                key={item.id ?? i}
+                ref={selected ? rowRefForId : undefined}
+                onClick={locatable ? () => onSelectField(field.id) : undefined}
+                onMouseEnter={locatable ? () => onHoverField(field.id) : undefined}
+                onMouseLeave={locatable ? () => onHoverField(null) : undefined}
+                title={locatable ? "Click to locate on the document" : undefined}
+                className={`text-gray-900 dark:text-gray-100 transition-colors ${
+                  locatable ? "cursor-pointer" : ""
+                } ${selected ? "bg-indigo-50 dark:bg-indigo-900/20" : locatable ? "hover:bg-gray-50 dark:hover:bg-gray-700/40" : ""}`}
+              >
+                <td className="px-3 py-2 break-words">{item.name || <Dash />}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.quantity)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.unitPrice)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.total)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{numOrDash(item.tax)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -36,6 +36,8 @@ function num(v: unknown): number | null {
 
 function normalizeExpense(docs: any[]): ParsedOcr {
   const fields: OcrField[] = [];
+  const lineItems: OcrField[] = [];
+  let liIndex = 0;
 
   docs.forEach((doc, di) => {
     (doc?.summaryFields || []).forEach((f: any, i: number) => {
@@ -50,9 +52,23 @@ function normalizeExpense(docs: any[]): ParsedOcr {
         box: toBox(f?.boundingBox),
       });
     });
+
+    // One selectable box per line item — the EXPENSE_ROW spans the whole row; fall
+    // back to the ITEM cell. Order matches the DB result items (both come from the
+    // same doc.lineItems), so rows correlate by index.
+    (doc?.lineItems || []).forEach((li: any) => {
+      lineItems.push({
+        id: `li-${liIndex++}`,
+        label: null,
+        value: li?.ITEM?.value ?? null,
+        confidence: null,
+        page: 1,
+        box: toBox(li?.EXPENSE_ROW?.boundingBox) ?? toBox(li?.ITEM?.boundingBox),
+      });
+    });
   });
 
-  return { pageCount: 1, fields, tables: [] };
+  return { pageCount: 1, fields, tables: [], lineItems };
 }
 
 function normalizeDocument(pages: any[]): ParsedOcr {
@@ -88,5 +104,6 @@ function normalizeDocument(pages: any[]): ParsedOcr {
     });
   });
 
-  return { pageCount, fields, tables };
+  // Document-analysis results have no expense line items.
+  return { pageCount, fields, tables, lineItems: [] };
 }
