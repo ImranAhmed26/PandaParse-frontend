@@ -11,7 +11,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import type { OcrField } from "../types";
+import type { OverlayBox } from "../types";
 
 // Bundle the pdf.js worker locally (no CDN — CSP-safe). Resolved by the bundler.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -27,7 +27,7 @@ const SCALE_STEP = 0.25;
 interface DocumentFileViewerProps {
   fileUrl: string;
   fileName: string;
-  fields: OcrField[];
+  boxes: OverlayBox[];
   selectedFieldId: string | null;
   hoveredFieldId: string | null;
   onSelectField: (id: string) => void;
@@ -53,7 +53,7 @@ function detectKind(fileName: string): FileKind {
 export function DocumentFileViewer({
   fileUrl,
   fileName,
-  fields,
+  boxes,
   selectedFieldId,
   hoveredFieldId,
   onSelectField,
@@ -66,18 +66,18 @@ export function DocumentFileViewer({
   const [pageNumber, setPageNumber] = useState(1);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
-  // When a field is selected (e.g. from the data panel), jump to its page.
+  // When a box is selected (e.g. from the data panel), jump to its page.
   useEffect(() => {
     if (!selectedFieldId) return;
-    const f = fields.find((x) => x.id === selectedFieldId);
-    if (f?.box) setPageNumber((p) => (f.page !== p ? f.page : p));
-  }, [selectedFieldId, fields]);
+    const b = boxes.find((x) => x.id === selectedFieldId);
+    if (b) setPageNumber((p) => (b.page !== p ? b.page : p));
+  }, [selectedFieldId, boxes]);
 
   // Boxes to draw on the page currently in view (images are single-page → page 1).
   const currentPage = kind === "image" ? 1 : pageNumber;
-  const pageFields = useMemo(
-    () => fields.filter((f) => f.box && f.page === currentPage),
-    [fields, currentPage],
+  const pageBoxes = useMemo(
+    () => boxes.filter((b) => b.page === currentPage),
+    [boxes, currentPage],
   );
 
   const zoomOut = () => setScale((s) => Math.max(MIN_SCALE, +(s - SCALE_STEP).toFixed(2)));
@@ -89,7 +89,7 @@ export function DocumentFileViewer({
 
   const overlay = (
     <BoxOverlay
-      fields={pageFields}
+      boxes={pageBoxes}
       selectedFieldId={selectedFieldId}
       hoveredFieldId={hoveredFieldId}
       onSelectField={onSelectField}
@@ -193,13 +193,13 @@ export function DocumentFileViewer({
 }
 
 function BoxOverlay({
-  fields,
+  boxes,
   selectedFieldId,
   hoveredFieldId,
   onSelectField,
   onHoverField,
 }: {
-  fields: OcrField[];
+  boxes: OverlayBox[];
   selectedFieldId: string | null;
   hoveredFieldId: string | null;
   onSelectField: (id: string) => void;
@@ -213,9 +213,8 @@ function BoxOverlay({
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      {fields.map((f) => {
+      {boxes.map((f) => {
         const box = f.box;
-        if (!box) return null;
         const selected = f.id === selectedFieldId;
         const hovered = f.id === hoveredFieldId;
         return (

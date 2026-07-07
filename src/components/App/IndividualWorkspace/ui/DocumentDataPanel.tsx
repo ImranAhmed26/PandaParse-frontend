@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, Crosshair, FileQuestion, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Crosshair, FileQuestion, Loader2, Pencil } from "lucide-react";
 import { useUpdateDocumentResult, useUpdateDocumentResultStatus } from "../hooks";
-import type { DocumentResultData, DocumentResultItem, OcrField, OcrTable, ParsedOcr } from "../types";
+import type { DocumentResultData, ExtractedField, LineItem, LineItemEdit } from "../types";
 
 interface DocumentDataPanelProps {
-  ocr: ParsedOcr | null;
   result: DocumentResultData | null;
   documentId: string;
   selectedFieldId: string | null;
@@ -32,29 +31,30 @@ function needsReview(level: ConfidenceLevel): boolean {
   return level === "low" || level === "unknown";
 }
 
-function humanizeLabel(label: string | null): string {
-  if (!label) return "Field";
-  if (/^[A-Z0-9_]+$/.test(label)) {
-    return label
-      .toLowerCase()
-      .split("_")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
-  }
-  return label;
+function humanizeKey(key: string): string {
+  return key
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function fieldLabel(field: ExtractedField): string {
+  return field.label ?? humanizeKey(field.key);
 }
 
 const inputClass =
   "w-full bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-indigo-400 rounded px-1.5 py-1 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-400";
 
 /**
- * Right-pane extracted-data view. Summary values and line items are editable and persist
- * via PATCH /document-results/:id; the review workflow (draft -> reviewed -> approved) is
- * driven from the footer. Detected fields (parsed OCR) stay read-only — they're the
- * immutable evidence with confidence + click-to-locate mapping.
+ * Right-pane extracted-data view. Header fields and line items are editable and mapped:
+ * each carries its OCR confidence and (via its id) a bounding box on the document, so a
+ * row can be located on the page and vice-versa. Edits persist via
+ * PATCH /document-results/:id; the review workflow (draft -> reviewed -> approved) is
+ * driven from the footer. Editing a value never moves its detected box.
  */
 export function DocumentDataPanel({
-  ocr,
   result,
   documentId,
   selectedFieldId,
@@ -66,18 +66,28 @@ export function DocumentDataPanel({
   const [onlyReview, setOnlyReview] = useState(false);
 
   // Editable drafts — reset when navigating to a different result.
-  const [draftSummary, setDraftSummary] = useState<Record<string, unknown>>({});
-  const [draftItems, setDraftItems] = useState<DocumentResultItem[]>([]);
-  const [dirty, setDirty] = useState(false);
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [draftItems, setDraftItems] = useState<LineItem[]>([]);
+  const [itemsDirty, setItemsDirty] = useState(false);
 
   useEffect(() => {
-    setDraftSummary(result?.summary ? { ...result.summary } : {});
-    setDraftItems(result?.items ? result.items.map((it) => ({ ...it })) : []);
-    setDirty(false);
-    // Intentionally keyed on result.id only: reset drafts when switching to a different
-    // result, not on refetches of the same one (which would clobber in-progress edits).
+    const values: Record<string, string> = {};
+    for (const f of result?.fields ?? []) values[f.key] = f.value ?? "";
+    setDraftValues(values);
+    setDraftItems(result?.lineItems ? result.lineItems.map((li) => ({ ...li })) : []);
+    setItemsDirty(false);
+    // Keyed on result.id only: reset drafts when switching to a different result, not on
+    // refetches/cache-patches of the same one (which would clobber in-progress edits).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result?.id]);
+
+  const fields = useMemo(() => result?.fields ?? [], [result]);
+
+  const fieldsDirty = useMemo(
+    () => fields.some((f) => (draftValues[f.key] ?? "") !== (f.value ?? "")),
+    [fields, draftValues],
+  );
+  const dirty = fieldsDirty || itemsDirty;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -97,15 +107,16 @@ export function DocumentDataPanel({
   const updateResult = useUpdateDocumentResult(documentId);
   const updateStatus = useUpdateDocumentResultStatus(documentId);
 
-  const setSummaryValue = (key: string, value: string) => {
-    setDraftSummary((s) => ({ ...s, [key]: value }));
-    setDirty(true);
+  const setFieldValue = (key: string, value: string) => {
+    setDraftValues((v) => ({ ...v, [key]: value }));
   };
-  const setItemName = (i: number, raw: string) => {
-    setDraftItems((items) => items.map((it, idx) => (idx === i ? { ...it, name: raw === "" ? null : raw } : it)));
-    setDirty(true);
+  const setItemText = (i: number, field: "description" | "productCode", raw: string) => {
+    setDraftItems((items) =>
+      items.map((it, idx) => (idx === i ? { ...it, [field]: raw === "" ? null : raw } : it)),
+    );
+    setItemsDirty(true);
   };
-  const setItemNumber = (i: number, field: keyof DocumentResultItem, raw: string) => {
+  const setItemNumber = (i: number, field: "quantity" | "unitPrice" | "amount" | "tax", raw: string) => {
     const t = raw.trim();
     let val: number | null;
     if (t === "") val = null;
@@ -115,14 +126,39 @@ export function DocumentDataPanel({
       val = n;
     }
     setDraftItems((items) => items.map((it, idx) => (idx === i ? { ...it, [field]: val } : it)));
-    setDirty(true);
+    setItemsDirty(true);
   };
 
   const handleSave = async () => {
     if (!result) return;
+    const fieldEdits = fields
+      .filter((f) => (draftValues[f.key] ?? "") !== (f.value ?? ""))
+      .map((f) => ({ key: f.key, value: draftValues[f.key] === "" ? null : draftValues[f.key] }));
+
+    const lineItems: LineItemEdit[] | undefined = itemsDirty
+      ? draftItems.map((li) => ({
+          rowIndex: li.rowIndex,
+          description: li.description,
+          quantity: li.quantity,
+          unitPrice: li.unitPrice,
+          amount: li.amount,
+          tax: li.tax,
+          productCode: li.productCode,
+        }))
+      : undefined;
+
+    if (fieldEdits.length === 0 && lineItems === undefined) return;
+
     try {
-      await updateResult.mutateAsync({ resultId: result.id, payload: { summary: draftSummary, items: draftItems } });
-      setDirty(false);
+      await updateResult.mutateAsync({
+        resultId: result.id,
+        payload: {
+          ...(fieldEdits.length ? { fields: fieldEdits } : {}),
+          ...(lineItems ? { lineItems } : {}),
+        },
+      });
+      // Field drafts self-clean (they now equal the saved values); reset the items flag.
+      setItemsDirty(false);
     } catch {
       // error surfaced via updateResult.isError below
     }
@@ -137,26 +173,15 @@ export function DocumentDataPanel({
     node?.scrollIntoView({ block: "nearest" });
   }, []);
 
-  const ocrFields = useMemo(() => ocr?.fields ?? [], [ocr]);
-  const lineItemFields = ocr?.lineItems ?? [];
-  const tables = ocr?.tables ?? [];
-  // Only string summary values are user-editable; numeric metadata (counts) is preserved
-  // untouched in draftSummary and sent back on save.
-  const summaryKeys = useMemo(
-    () => Object.entries(draftSummary).filter(([, v]) => typeof v === "string").map(([k]) => k),
-    [draftSummary],
-  );
-
   const reviewCount = useMemo(
-    () => ocrFields.filter((f) => needsReview(confidenceLevel(f.confidence))).length,
-    [ocrFields],
+    () => fields.filter((f) => needsReview(confidenceLevel(f.confidence))).length,
+    [fields],
   );
   const visibleFields = onlyReview
-    ? ocrFields.filter((f) => needsReview(confidenceLevel(f.confidence)) || f.id === selectedFieldId)
-    : ocrFields;
+    ? fields.filter((f) => needsReview(confidenceLevel(f.confidence)) || f.id === selectedFieldId)
+    : fields;
 
-  const hasAnything =
-    summaryKeys.length > 0 || draftItems.length > 0 || ocrFields.length > 0 || tables.length > 0;
+  const hasAnything = fields.length > 0 || draftItems.length > 0;
 
   return (
     <div className="h-[75vh] flex flex-col border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/40 overflow-hidden">
@@ -185,42 +210,8 @@ export function DocumentDataPanel({
           <EmptyState />
         ) : (
           <>
-            {summaryKeys.length > 0 && (
-              <Section title="Summary">
-                <div className="space-y-2">
-                  {summaryKeys.map((key) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <label className="text-xs text-gray-500 dark:text-gray-400 w-28 shrink-0">
-                        {humanizeLabel(key)}
-                      </label>
-                      <input
-                        value={String(draftSummary[key] ?? "")}
-                        onChange={(e) => setSummaryValue(key, e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {draftItems.length > 0 && (
-              <Section title={`Line items (${draftItems.length})`}>
-                <LineItemsTable
-                  items={draftItems}
-                  lineItemFields={lineItemFields}
-                  selectedFieldId={selectedFieldId}
-                  onSelectField={onSelectField}
-                  onHoverField={onHoverField}
-                  rowRefForId={scrollSelectedIntoView}
-                  onNameChange={setItemName}
-                  onNumberChange={setItemNumber}
-                />
-              </Section>
-            )}
-
-            {ocrFields.length > 0 && (
-              <Section title="Detected fields">
+            {fields.length > 0 && (
+              <Section title="Fields">
                 {visibleFields.length === 0 ? (
                   <p className="text-xs text-gray-500 dark:text-gray-400">No fields match this filter.</p>
                 ) : (
@@ -231,6 +222,8 @@ export function DocumentDataPanel({
                         <FieldRow
                           key={f.id}
                           field={f}
+                          value={draftValues[f.key] ?? ""}
+                          onChange={(v) => setFieldValue(f.key, v)}
                           selected={selected}
                           hovered={f.id === hoveredFieldId}
                           onSelect={onSelectField}
@@ -244,11 +237,19 @@ export function DocumentDataPanel({
               </Section>
             )}
 
-            {tables.map((t, i) => (
-              <Section key={`table-${i}`} title={tables.length > 1 ? `Table ${i + 1}` : "Table"}>
-                <OcrTableView table={t} />
+            {draftItems.length > 0 && (
+              <Section title={`Line items (${draftItems.length})`}>
+                <LineItemsTable
+                  items={draftItems}
+                  selectedFieldId={selectedFieldId}
+                  onSelectField={onSelectField}
+                  onHoverField={onHoverField}
+                  rowRefForId={scrollSelectedIntoView}
+                  onTextChange={setItemText}
+                  onNumberChange={setItemNumber}
+                />
               </Section>
-            ))}
+            )}
           </>
         )}
       </div>
@@ -331,15 +332,24 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * One editable + mapped header field. Hovering highlights its box on the document; the
+ * locate button selects it (and scrolls the box into view). The detected value is shown
+ * beneath the input once the value has been edited, as an audit reference.
+ */
 function FieldRow({
   field,
+  value,
+  onChange,
   selected,
   hovered,
   onSelect,
   onHover,
   rowRef,
 }: {
-  field: OcrField;
+  field: ExtractedField;
+  value: string;
+  onChange: (value: string) => void;
   selected: boolean;
   hovered: boolean;
   onSelect: (id: string) => void;
@@ -348,36 +358,51 @@ function FieldRow({
 }) {
   const level = confidenceLevel(field.confidence);
   const review = needsReview(level);
-  const locatable = !!field.box;
+  const locatable = !!field.boundingBox;
+  const edited = field.isEdited || value !== (field.value ?? "");
   return (
     <div
       ref={rowRef}
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(field.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect(field.id);
-        }
-      }}
       onMouseEnter={() => onHover(field.id)}
       onMouseLeave={() => onHover(null)}
-      title={locatable ? "Click to locate on the document" : undefined}
-      className={`flex items-start justify-between gap-3 py-2 pl-2 pr-1 cursor-pointer rounded-sm outline-none border-l-2 transition-colors focus-visible:ring-1 focus-visible:ring-indigo-400 ${
+      className={`flex items-start gap-2 py-2 pl-1 pr-1 rounded-sm border-l-2 transition-colors ${
         selected
-          ? "bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-700"
+          ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400"
           : hovered
-            ? "bg-gray-50 dark:bg-gray-700/40"
-            : ""
-      } ${review ? "border-red-400 dark:border-red-500/70" : "border-transparent"}`}
+            ? "bg-gray-50 dark:bg-gray-700/40 border-transparent"
+            : "border-transparent"
+      } ${review && !selected ? "border-red-400 dark:border-red-500/70" : ""}`}
     >
+      <button
+        type="button"
+        onClick={() => onSelect(field.id)}
+        disabled={!locatable}
+        title={locatable ? "Locate on document" : "No location for this field"}
+        className="mt-5 p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-gray-400"
+      >
+        <Crosshair className="h-3.5 w-3.5" />
+      </button>
+
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-gray-500 dark:text-gray-400">{humanizeLabel(field.label)}</p>
-        <p className="text-sm text-gray-900 dark:text-gray-100 break-words">
-          {field.value || <span className="text-gray-400 dark:text-gray-500">—</span>}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-gray-500 dark:text-gray-400">{fieldLabel(field)}</label>
+          {edited && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] text-indigo-500 dark:text-indigo-400"
+              title={`Detected: ${field.detectedValue ?? "—"}`}
+            >
+              <Pencil className="h-2.5 w-2.5" /> edited
+            </span>
+          )}
+        </div>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="—"
+          className={inputClass}
+        />
       </div>
+
       <ConfidenceBadge confidence={field.confidence} />
     </div>
   );
@@ -394,7 +419,7 @@ function ConfidenceBadge({ confidence }: { confidence: number | null }) {
   const label = confidence == null ? "—" : `${Math.round(confidence)}%`;
   return (
     <span
-      className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums ${styles[level]}`}
+      className={`mt-5 shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums ${styles[level]}`}
       title="OCR confidence"
     >
       {label}
@@ -421,22 +446,20 @@ function StatusBadge({ status }: { status: string }) {
 
 function LineItemsTable({
   items,
-  lineItemFields,
   selectedFieldId,
   onSelectField,
   onHoverField,
   rowRefForId,
-  onNameChange,
+  onTextChange,
   onNumberChange,
 }: {
-  items: DocumentResultItem[];
-  lineItemFields: OcrField[];
+  items: LineItem[];
   selectedFieldId: string | null;
   onSelectField: (id: string) => void;
   onHoverField: (id: string | null) => void;
   rowRefForId: (node: HTMLElement | null) => void;
-  onNameChange: (i: number, raw: string) => void;
-  onNumberChange: (i: number, field: keyof DocumentResultItem, raw: string) => void;
+  onTextChange: (i: number, field: "description" | "productCode", raw: string) => void;
+  onNumberChange: (i: number, field: "quantity" | "unitPrice" | "amount" | "tax", raw: string) => void;
 }) {
   return (
     <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -444,23 +467,22 @@ function LineItemsTable({
         <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs text-gray-500 dark:text-gray-400">
           <tr>
             <th className="w-8" />
-            <th className="text-left font-medium px-2 py-2">Name</th>
+            <th className="text-left font-medium px-2 py-2">Description</th>
             <th className="text-right font-medium px-2 py-2 w-16">Qty</th>
             <th className="text-right font-medium px-2 py-2 w-24">Unit price</th>
-            <th className="text-right font-medium px-2 py-2 w-24">Total</th>
+            <th className="text-right font-medium px-2 py-2 w-24">Amount</th>
             <th className="text-right font-medium px-2 py-2 w-20">Tax</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
           {items.map((item, i) => {
-            const field = lineItemFields[i];
-            const locatable = !!field?.box;
-            const selected = !!field && field.id === selectedFieldId;
+            const locatable = !!item.boundingBox;
+            const selected = item.id === selectedFieldId;
             return (
               <tr
-                key={item.id ?? i}
+                key={item.id}
                 ref={selected ? rowRefForId : undefined}
-                onMouseEnter={locatable ? () => onHoverField(field.id) : undefined}
+                onMouseEnter={locatable ? () => onHoverField(item.id) : undefined}
                 onMouseLeave={locatable ? () => onHoverField(null) : undefined}
                 className={`text-gray-900 dark:text-gray-100 ${
                   selected ? "bg-indigo-50 dark:bg-indigo-900/20" : ""
@@ -470,7 +492,7 @@ function LineItemsTable({
                   {locatable && (
                     <button
                       type="button"
-                      onClick={() => onSelectField(field.id)}
+                      onClick={() => onSelectField(item.id)}
                       title="Locate on document"
                       className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
                     >
@@ -481,14 +503,14 @@ function LineItemsTable({
                 <td className="px-1 py-1 align-top">
                   <textarea
                     rows={1}
-                    value={item.name ?? ""}
-                    onChange={(e) => onNameChange(i, e.target.value)}
+                    value={item.description ?? ""}
+                    onChange={(e) => onTextChange(i, "description", e.target.value)}
                     className={`${inputClass} resize-none`}
                   />
                 </td>
                 <NumberCell value={item.quantity} onChange={(v) => onNumberChange(i, "quantity", v)} />
                 <NumberCell value={item.unitPrice} onChange={(v) => onNumberChange(i, "unitPrice", v)} />
-                <NumberCell value={item.total} onChange={(v) => onNumberChange(i, "total", v)} />
+                <NumberCell value={item.amount} onChange={(v) => onNumberChange(i, "amount", v)} />
                 <NumberCell value={item.tax} onChange={(v) => onNumberChange(i, "tax", v)} />
               </tr>
             );
@@ -513,30 +535,6 @@ function NumberCell({ value, onChange }: { value: number | null; onChange: (raw:
   );
 }
 
-function OcrTableView({ table }: { table: OcrTable }) {
-  const { rows, maxCol } = useMemo(() => buildGrid(table), [table]);
-  if (rows.length === 0) {
-    return <p className="text-xs text-gray-500 dark:text-gray-400">Empty table.</p>;
-  }
-  return (
-    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-      <table className="w-full text-sm">
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-          {rows.map((cellsByCol, r) => (
-            <tr key={r} className="text-gray-900 dark:text-gray-100">
-              {Array.from({ length: maxCol }, (_, c) => (
-                <td key={c} className="px-3 py-2 border-r border-gray-100 dark:border-gray-700/60 last:border-r-0">
-                  {cellsByCol[c + 1] ?? ""}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function EmptyState() {
   return (
     <div className="h-full flex flex-col items-center justify-center text-center px-6 py-16">
@@ -547,20 +545,4 @@ function EmptyState() {
       </p>
     </div>
   );
-}
-
-function buildGrid(table: OcrTable): { rows: Record<number, string>[]; maxCol: number } {
-  const byRow = new Map<number, Record<number, string>>();
-  let maxCol = 0;
-  for (const cell of table.cells) {
-    const r = cell.rowIndex ?? 0;
-    const c = cell.columnIndex ?? 0;
-    maxCol = Math.max(maxCol, c);
-    if (!byRow.has(r)) byRow.set(r, {});
-    byRow.get(r)![c] = cell.text ?? "";
-  }
-  const rows = Array.from(byRow.keys())
-    .sort((a, b) => a - b)
-    .map((r) => byRow.get(r)!);
-  return { rows, maxCol };
 }

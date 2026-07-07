@@ -1,7 +1,8 @@
 // Shared OCR / Document-Editor contract types.
 // Mirrors the backend `GET /documents/:id/ocr` payload and the editable document result.
-// These are the stable vocabulary the editor phases build on; the raw Textract JSON is
-// normalized into `ParsedOcr` by a client-side function introduced in a later phase.
+// The backend now materializes a curated, canonical per-field model (ExtractedField +
+// LineItem), each field carrying its own bounding box — so the client no longer needs to
+// normalize raw Textract JSON.
 
 /** Textract-style normalized bounding box. All values are fractions (0..1) of the page. */
 export interface NormalizedBox {
@@ -11,54 +12,48 @@ export interface NormalizedBox {
   height: number;
 }
 
-/** A single extracted field with its detected location and confidence. */
-export interface OcrField {
+export type FieldDataType = "STRING" | "NUMBER" | "DATE" | "CURRENCY";
+
+/**
+ * One canonical header field (vendor, total, date, …). Carries the original OCR
+ * detection (`detectedValue` + `confidence` + `boundingBox`) and the current/corrected
+ * `value`. `isEdited` is true once `value` diverges from `detectedValue`.
+ */
+export interface ExtractedField {
   id: string;
-  /** Field type / key text, e.g. "VENDOR_NAME" or a key/value key. */
+  key: string;
   label: string | null;
+  dataType: FieldDataType;
+  detectedValue: string | null;
   value: string | null;
-  /** Confidence as reported by Textract (0..100), or null when unknown. */
   confidence: number | null;
-  /** 1-based page number the field was detected on. */
   page: number;
-  box: NormalizedBox | null;
+  boundingBox: NormalizedBox | null;
+  isEdited: boolean;
 }
 
-export interface OcrTableCell {
+/** One line-item row: typed, editable columns plus its row bounding box for mapping. */
+export interface LineItem {
+  id: string;
   rowIndex: number;
-  columnIndex: number;
-  text: string | null;
-  confidence: number | null;
-  page: number;
-  box: NormalizedBox | null;
-}
-
-export interface OcrTable {
-  page: number;
-  cells: OcrTableCell[];
-}
-
-/** Viewer-ready OCR data produced by normalizing the raw Textract JSON. */
-export interface ParsedOcr {
-  pageCount: number;
-  fields: OcrField[];
-  tables: OcrTable[];
-  /**
-   * One entry per detected expense line item, in the same order as the DB result
-   * items — each carries the row's bounding box (Textract EXPENSE_ROW) so line-item
-   * rows can be located on the document. Empty for document-analysis results.
-   */
-  lineItems: OcrField[];
-}
-
-/** Editable line item (mirrors the backend InvoiceItem). */
-export interface DocumentResultItem {
-  id?: string;
-  name: string | null;
+  description: string | null;
   quantity: number | null;
   unitPrice: number | null;
-  total: number | null;
+  amount: number | null;
   tax: number | null;
+  productCode: string | null;
+  boundingBox: NormalizedBox | null;
+  confidence: number | null;
+  /** Raw per-cell OCR detail keyed by Textract type; opaque to the UI. */
+  cells: Record<string, unknown> | null;
+}
+
+/** A selectable box drawn on the document — unifies header fields and line-item rows. */
+export interface OverlayBox {
+  id: string;
+  page: number;
+  box: NormalizedBox;
+  label: string | null;
 }
 
 export type DocumentResultStatus = "draft" | "reviewed" | "approved";
@@ -67,16 +62,18 @@ export type DocumentResultStatus = "draft" | "reviewed" | "approved";
 export interface DocumentResultData {
   id: string;
   status: DocumentResultStatus;
-  summary: Record<string, unknown> | null;
-  items: DocumentResultItem[];
+  docType: string;
+  fields: ExtractedField[];
+  lineItems: LineItem[];
   reviewedAt: string | null;
   approvedAt: string | null;
 }
 
 /**
  * Response of `GET /documents/:id/ocr` — everything the editor needs in one call.
- * `fileUrl` is a short-lived presigned GET; `result` is null until processing produces one;
- * `parsed` is the raw Textract JSON (normalized into `ParsedOcr` client-side later).
+ * `fileUrl` is a short-lived presigned GET; `result` is null until processing produces one.
+ * `parsed` (raw Textract JSON) is still returned as the archive but is no longer consumed
+ * by the UI — fields carry their own boxes.
  */
 export interface DocumentOcrResponse {
   document: {
@@ -90,8 +87,25 @@ export interface DocumentOcrResponse {
   parsed: unknown | null;
 }
 
+/** One corrected header field, matched/created by canonical key. */
+export interface FieldEdit {
+  key: string;
+  value: string | null;
+}
+
+/** One corrected line-item row. Replaces the stored row at `rowIndex`. */
+export interface LineItemEdit {
+  rowIndex?: number;
+  description?: string | null;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  amount?: number | null;
+  tax?: number | null;
+  productCode?: string | null;
+}
+
 /** Body for `PATCH /document-results/:id`. Provided fields replace stored values. */
 export interface UpdateDocumentResultPayload {
-  summary?: Record<string, unknown>;
-  items?: DocumentResultItem[];
+  fields?: FieldEdit[];
+  lineItems?: LineItemEdit[];
 }

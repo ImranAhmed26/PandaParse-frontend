@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { useDocumentOcr } from "../hooks";
-import { normalizeParsedOcr } from "../lib/parseOcr";
+import type { OverlayBox } from "../types";
 import { DocumentDataPanel } from "./DocumentDataPanel";
 
 // react-pdf / pdf.js touch browser-only APIs — load the viewer client-side only.
@@ -42,15 +42,20 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
   const { data, isLoading, isError } = useDocumentOcr(documentId);
   const title = data?.document.fileName ?? "Document";
 
-  // Normalize once here so the viewer overlay and the data panel share the exact same
-  // fields (and field ids), which is what makes selection sync work.
-  const ocr = useMemo(() => normalizeParsedOcr(data?.parsed ?? null), [data?.parsed]);
+  const result = data?.result ?? null;
 
-  // Boxes drawn on the document = summary fields + line-item rows (both selectable).
-  const overlayFields = useMemo(
-    () => (ocr ? [...ocr.fields, ...ocr.lineItems] : []),
-    [ocr],
-  );
+  // Boxes drawn on the document = header fields + line-item rows (both selectable). Ids
+  // match the data-panel rows exactly, which is what makes selection sync work.
+  const overlayBoxes = useMemo<OverlayBox[]>(() => {
+    if (!result) return [];
+    const fieldBoxes: OverlayBox[] = result.fields
+      .filter((f) => f.boundingBox)
+      .map((f) => ({ id: f.id, page: f.page, box: f.boundingBox!, label: f.label ?? f.key }));
+    const rowBoxes: OverlayBox[] = result.lineItems
+      .filter((li) => li.boundingBox)
+      .map((li) => ({ id: li.id, page: 1, box: li.boundingBox!, label: li.description }));
+    return [...fieldBoxes, ...rowBoxes];
+  }, [result]);
 
   // Shared selection between the viewer overlay and the data panel — lifted here so both
   // stay in sync. Local state; no global store needed.
@@ -143,7 +148,7 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           <DocumentFileViewer
             fileUrl={data.fileUrl}
             fileName={data.document.fileName}
-            fields={overlayFields}
+            boxes={overlayBoxes}
             selectedFieldId={selectedFieldId}
             hoveredFieldId={hoveredFieldId}
             onSelectField={setSelectedFieldId}
@@ -168,8 +173,7 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           />
         ) : (
           <DocumentDataPanel
-            ocr={ocr}
-            result={data?.result ?? null}
+            result={result}
             documentId={documentId}
             selectedFieldId={selectedFieldId}
             hoveredFieldId={hoveredFieldId}
