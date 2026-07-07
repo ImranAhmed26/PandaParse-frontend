@@ -135,11 +135,18 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
         </div>
 
         {/* Export the current document's corrected values (JSON / CSV) */}
-        <div className="relative self-start sm:self-auto">
+        <div
+          className="relative self-start sm:self-auto"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setExportOpen(false);
+          }}
+        >
           <button
             type="button"
             onClick={() => setExportOpen((o) => !o)}
             disabled={!canExport}
+            aria-haspopup="menu"
+            aria-expanded={exportOpen}
             title={
               !result
                 ? "No extracted data to export"
@@ -156,9 +163,14 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           {exportOpen && canExport && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-              <div className="absolute right-0 mt-1 z-20 w-44 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1">
+              <div
+                role="menu"
+                aria-label="Export format"
+                className="absolute right-0 mt-1 z-20 w-44 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1"
+              >
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={() => handleExport("json")}
                   className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
@@ -166,6 +178,7 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={() => handleExport("csv")}
                   className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >

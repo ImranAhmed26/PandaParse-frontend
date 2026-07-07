@@ -225,7 +225,8 @@ function BoxOverlay({
             onClick={() => onSelectField(f.id)}
             onMouseEnter={() => onHoverField(f.id)}
             onMouseLeave={() => onHoverField(null)}
-            aria-label={f.label ?? "field"}
+            aria-label={`Highlight ${f.label ?? "field"} in the data panel`}
+            aria-pressed={selected}
             style={{
               left: `${box.left * 100}%`,
               top: `${box.top * 100}%`,

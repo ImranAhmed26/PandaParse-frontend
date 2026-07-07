@@ -304,7 +304,7 @@ export function DocumentDataPanel({
       {result && (
         <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
           {result.status !== "approved" && (missingRequired.length > 0 || lowConfidenceCount > 0) && (
-            <div className="px-4 pt-2.5 text-xs space-y-0.5">
+            <div className="px-4 pt-2.5 text-xs space-y-0.5" aria-live="polite">
               {missingRequired.length > 0 && (
                 <p className="inline-flex items-start gap-1 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
@@ -450,6 +450,8 @@ function FieldRow({
         type="button"
         onClick={() => onSelect(field.id)}
         disabled={!locatable}
+        aria-label={locatable ? `Locate ${fieldLabel(field)} on document` : undefined}
+        aria-pressed={locatable ? selected : undefined}
         title={locatable ? "Locate on document" : "No location for this field"}
         className={`mt-5 p-1 disabled:opacity-30 disabled:hover:text-gray-400 ${
           selected ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -492,10 +494,15 @@ function ConfidenceBadge({ confidence }: { confidence: number | null }) {
     unknown: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
   };
   const label = confidence == null ? "—" : `${Math.round(confidence)}%`;
+  const ariaLabel =
+    confidence == null
+      ? "OCR confidence unknown"
+      : `OCR confidence ${Math.round(confidence)} percent, ${level}`;
   return (
     <span
       className={`mt-5 shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums ${styles[level]}`}
       title="OCR confidence"
+      aria-label={ariaLabel}
     >
       {label}
     </span>
@@ -569,6 +576,8 @@ function LineItemsTable({
                     <button
                       type="button"
                       onClick={() => onSelectField(item.id)}
+                      aria-label={`Locate line item ${item.rowIndex + 1} on document`}
+                      aria-pressed={selected}
                       title="Locate on document"
                       className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
                     >
