@@ -215,55 +215,60 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
         </button>
       </div>
 
-      {/* Two-pane layout: viewer (left) + extracted data (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Two-pane layout: viewer (left, wider) + extracted data (right).
+          The document is the focus of review, so it gets 3/5 of the width on desktop. */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
         {/* Left: document viewer */}
-        {isLoading ? (
-          <ViewerLoadingPane />
-        ) : isError ? (
-          <ViewerMessagePane
-            icon={<FileWarning className="h-8 w-8" />}
-            title="Couldn't load this document"
-            subtitle="Please go back and try again."
-          />
-        ) : data?.fileUrl ? (
-          <DocumentFileViewer
-            fileUrl={data.fileUrl}
-            fileName={data.document.fileName}
-            boxes={overlayBoxes}
-            selectedFieldId={selectedFieldId}
-            hoveredFieldId={hoveredFieldId}
-            onSelectField={setSelectedFieldId}
-            onHoverField={setHoveredFieldId}
-          />
-        ) : (
-          <ViewerMessagePane
-            icon={<FileWarning className="h-8 w-8" />}
-            title="File unavailable"
-            subtitle="No file is associated with this document."
-          />
-        )}
+        <div className="min-w-0 lg:col-span-3">
+          {isLoading ? (
+            <ViewerLoadingPane />
+          ) : isError ? (
+            <ViewerMessagePane
+              icon={<FileWarning className="h-8 w-8" />}
+              title="Couldn't load this document"
+              subtitle="Please go back and try again."
+            />
+          ) : data?.fileUrl ? (
+            <DocumentFileViewer
+              fileUrl={data.fileUrl}
+              fileName={data.document.fileName}
+              boxes={overlayBoxes}
+              selectedFieldId={selectedFieldId}
+              hoveredFieldId={hoveredFieldId}
+              onSelectField={setSelectedFieldId}
+              onHoverField={setHoveredFieldId}
+            />
+          ) : (
+            <ViewerMessagePane
+              icon={<FileWarning className="h-8 w-8" />}
+              title="File unavailable"
+              subtitle="No file is associated with this document."
+            />
+          )}
+        </div>
 
         {/* Right: extracted data */}
-        {isLoading ? (
-          <ViewerLoadingPane />
-        ) : isError ? (
-          <ViewerMessagePane
-            icon={<PanelRight className="h-8 w-8" />}
-            title="Data unavailable"
-            subtitle="Couldn't load the extracted data for this document."
-          />
-        ) : (
-          <DocumentDataPanel
-            result={result}
-            documentId={documentId}
-            selectedFieldId={selectedFieldId}
-            hoveredFieldId={hoveredFieldId}
-            onSelectField={setSelectedFieldId}
-            onHoverField={setHoveredFieldId}
-            onDirtyChange={setDirty}
-          />
-        )}
+        <div className="min-w-0 lg:col-span-2">
+          {isLoading ? (
+            <ViewerLoadingPane />
+          ) : isError ? (
+            <ViewerMessagePane
+              icon={<PanelRight className="h-8 w-8" />}
+              title="Data unavailable"
+              subtitle="Couldn't load the extracted data for this document."
+            />
+          ) : (
+            <DocumentDataPanel
+              result={result}
+              documentId={documentId}
+              selectedFieldId={selectedFieldId}
+              hoveredFieldId={hoveredFieldId}
+              onSelectField={setSelectedFieldId}
+              onHoverField={setHoveredFieldId}
+              onDirtyChange={setDirty}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
