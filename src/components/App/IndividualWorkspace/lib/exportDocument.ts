@@ -17,6 +17,12 @@ function baseName(fileName: string): string {
   return stem.replace(/[^\w.-]+/g, "_") || "document";
 }
 
+/** DATE fields store their typed value as epoch-ms; export it as a clean ISO date. */
+function isoDate(epochMs: number | null): string | null {
+  if (epochMs == null || !Number.isFinite(epochMs)) return null;
+  return new Date(epochMs).toISOString().slice(0, 10);
+}
+
 /** Structured JSON: corrected header fields + line items, order preserved. */
 export function buildJson(doc: ExportDoc, result: DocumentResultData): string {
   const payload = {
@@ -26,7 +32,10 @@ export function buildJson(doc: ExportDoc, result: DocumentResultData): string {
       key: f.key,
       label: f.label,
       value: f.value,
-      numericValue: f.numericValue,
+      // Typed value: ISO date for DATE fields, parsed amount for currency/number.
+      ...(f.dataType === "DATE"
+        ? { normalizedDate: isoDate(f.numericValue) }
+        : { numericValue: f.numericValue }),
       confidence: f.confidence,
     })),
     lineItems: result.lineItems.map((li) => ({
