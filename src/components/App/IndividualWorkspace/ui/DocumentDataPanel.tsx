@@ -617,81 +617,84 @@ function LineItemsTable({
   ) => void;
 }) {
   return (
-    <div className="space-y-2">
-      {items.map((item, i) => {
-        const locatable = !!item.boundingBox;
-        const selected = item.id === selectedFieldId;
-        return (
-          <div
-            key={item.id}
-            ref={selected ? rowRefForId : undefined}
-            onMouseEnter={locatable ? () => onHoverField(item.id) : undefined}
-            onMouseLeave={locatable ? () => onHoverField(null) : undefined}
-            className={`rounded-lg border p-2.5 space-y-2 transition-colors ${
-              selected
-                ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
-                : "border-gray-200 dark:border-gray-700"
-            }`}
-          >
-            {/* Row header: locate + number + description */}
-            <div className="flex items-start gap-2">
-              <button
-                type="button"
-                onClick={() => locatable && onSelectField(item.id)}
-                disabled={!locatable}
-                aria-label={locatable ? `Locate line item ${item.rowIndex + 1} on document` : undefined}
-                aria-pressed={locatable ? selected : undefined}
-                title={locatable ? "Locate on document" : "No location for this row"}
-                className={`mt-1 shrink-0 inline-flex items-center gap-1 text-xs tabular-nums disabled:opacity-40 ${
-                  selected ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+    // Horizontal scroll: the table keeps a comfortable min width so every column stays
+    // readable, and overflows/scrolls inside the panel rather than squashing.
+    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+      <table className="w-full min-w-[46rem] text-sm">
+        <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs text-gray-500 dark:text-gray-400">
+          <tr>
+            <th className="w-8" />
+            <th className="text-right font-medium px-2 py-2 w-10">#</th>
+            <th className="text-left font-medium px-2 py-2 min-w-[16rem]">Description</th>
+            <th className="text-right font-medium px-2 py-2 min-w-[5rem]">Qty</th>
+            <th className="text-right font-medium px-2 py-2 min-w-[7rem]">Unit price</th>
+            <th className="text-right font-medium px-2 py-2 min-w-[7rem]">Amount</th>
+            <th className="text-right font-medium px-2 py-2 min-w-[6rem]">Tax</th>
+            <th className="text-right font-medium px-2 py-2 min-w-[5rem]">Tax %</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+          {items.map((item, i) => {
+            const locatable = !!item.boundingBox;
+            const selected = item.id === selectedFieldId;
+            return (
+              <tr
+                key={item.id}
+                ref={selected ? rowRefForId : undefined}
+                onMouseEnter={locatable ? () => onHoverField(item.id) : undefined}
+                onMouseLeave={locatable ? () => onHoverField(null) : undefined}
+                className={`text-gray-900 dark:text-gray-100 ${
+                  selected ? "bg-indigo-50 dark:bg-indigo-900/20" : ""
                 }`}
               >
-                <Crosshair className="h-3.5 w-3.5" />
-                {item.rowIndex + 1}
-              </button>
-              <div className="min-w-0 flex-1">
-                <AutoGrowTextarea
-                  value={item.description ?? ""}
-                  onChange={(v) => onTextChange(i, "description", v)}
-                />
-              </div>
-            </div>
-
-            {/* Numeric fields, labeled so each value is readable in the narrow panel */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 pl-6">
-              <LabeledNumber label="Qty" value={item.quantity} onChange={(v) => onNumberChange(i, "quantity", v)} />
-              <LabeledNumber label="Unit price" value={item.unitPrice} onChange={(v) => onNumberChange(i, "unitPrice", v)} />
-              <LabeledNumber label="Amount" value={item.amount} onChange={(v) => onNumberChange(i, "amount", v)} />
-              <LabeledNumber label="Tax" value={item.tax} onChange={(v) => onNumberChange(i, "tax", v)} />
-              <LabeledNumber label="Tax %" value={item.taxRate} onChange={(v) => onNumberChange(i, "taxRate", v)} />
-            </div>
-          </div>
-        );
-      })}
+                <td className="px-1 py-1 align-top text-center">
+                  {locatable && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectField(item.id)}
+                      aria-label={`Locate line item ${item.rowIndex + 1} on document`}
+                      aria-pressed={selected}
+                      title="Locate on document"
+                      className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                    >
+                      <Crosshair className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </td>
+                <td className="px-2 py-1 align-top text-right text-gray-500 dark:text-gray-400 tabular-nums">
+                  {item.rowIndex + 1}
+                </td>
+                <td className="px-1 py-1 align-top">
+                  <AutoGrowTextarea
+                    value={item.description ?? ""}
+                    onChange={(v) => onTextChange(i, "description", v)}
+                  />
+                </td>
+                <NumberCell value={item.quantity} onChange={(v) => onNumberChange(i, "quantity", v)} />
+                <NumberCell value={item.unitPrice} onChange={(v) => onNumberChange(i, "unitPrice", v)} />
+                <NumberCell value={item.amount} onChange={(v) => onNumberChange(i, "amount", v)} />
+                <NumberCell value={item.tax} onChange={(v) => onNumberChange(i, "tax", v)} />
+                <NumberCell value={item.taxRate} onChange={(v) => onNumberChange(i, "taxRate", v)} />
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function LabeledNumber({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number | null;
-  onChange: (raw: string) => void;
-}) {
+function NumberCell({ value, onChange }: { value: number | null; onChange: (raw: string) => void }) {
   return (
-    <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</span>
+    <td className="px-1 py-1 align-top">
       <input
         type="number"
         step="any"
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-transparent border border-gray-200 dark:border-gray-600 focus:border-indigo-400 rounded px-1.5 py-1 text-sm text-gray-900 dark:text-gray-100 text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-indigo-400"
+        className={`${inputClass} text-right tabular-nums`}
       />
-    </label>
+    </td>
   );
 }
 
