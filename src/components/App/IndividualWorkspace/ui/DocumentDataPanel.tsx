@@ -365,7 +365,10 @@ function FieldRow({
       ref={rowRef}
       onMouseEnter={() => onHover(field.id)}
       onMouseLeave={() => onHover(null)}
+      onClick={locatable ? () => onSelect(field.id) : undefined}
       className={`flex items-start gap-2 py-2 pl-1 pr-1 rounded-sm border-l-2 transition-colors ${
+        locatable ? "cursor-pointer" : ""
+      } ${
         selected
           ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400"
           : hovered
@@ -378,7 +381,9 @@ function FieldRow({
         onClick={() => onSelect(field.id)}
         disabled={!locatable}
         title={locatable ? "Locate on document" : "No location for this field"}
-        className="mt-5 p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-gray-400"
+        className={`mt-5 p-1 disabled:opacity-30 disabled:hover:text-gray-400 ${
+          selected ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+        }`}
       >
         <Crosshair className="h-3.5 w-3.5" />
       </button>
@@ -484,7 +489,8 @@ function LineItemsTable({
                 ref={selected ? rowRefForId : undefined}
                 onMouseEnter={locatable ? () => onHoverField(item.id) : undefined}
                 onMouseLeave={locatable ? () => onHoverField(null) : undefined}
-                className={`text-gray-900 dark:text-gray-100 ${
+                onClick={locatable ? () => onSelectField(item.id) : undefined}
+                className={`text-gray-900 dark:text-gray-100 ${locatable ? "cursor-pointer" : ""} ${
                   selected ? "bg-indigo-50 dark:bg-indigo-900/20" : ""
                 }`}
               >

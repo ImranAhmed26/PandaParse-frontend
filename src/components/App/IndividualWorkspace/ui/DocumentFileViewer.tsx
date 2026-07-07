@@ -234,9 +234,9 @@ function BoxOverlay({
             }}
             className={`absolute pointer-events-auto rounded-[2px] border transition-colors ${
               selected
-                ? "border-indigo-500 bg-indigo-500/25 ring-1 ring-indigo-500"
+                ? "z-20 border-indigo-500 bg-indigo-500/25 ring-2 ring-indigo-500"
                 : hovered
-                  ? "border-indigo-400 bg-indigo-400/15"
+                  ? "z-10 border-indigo-400 bg-indigo-400/20"
                   : "border-amber-400/50 bg-amber-300/10 hover:bg-amber-300/25"
             }`}
           />
