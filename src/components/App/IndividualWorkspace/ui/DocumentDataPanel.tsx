@@ -31,6 +31,27 @@ function needsReview(level: ConfidenceLevel): boolean {
   return level === "low" || level === "unknown";
 }
 
+/**
+ * Locale-agnostic money/number parser — mirrors the backend `parseAmount` so the live
+ * arithmetic check reads draft values the same way they'll be stored. Decides the decimal
+ * separator by whichever of `.`/`,` appears last (handles "1,234.50" and "1.234,50").
+ */
+function parseAmount(v: string | null | undefined): number | null {
+  if (v == null) return null;
+  let cleaned = v.replace(/[^\d.,-]/g, "");
+  if (cleaned === "" || cleaned === "-" || cleaned === ".") return null;
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  else cleaned = cleaned.replace(/,/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function humanizeKey(key: string): string {
   return key
     .toLowerCase()
@@ -226,6 +247,43 @@ export function DocumentDataPanel({
   );
   const canApprove = missingRequired.length === 0;
 
+  // Cross-field arithmetic sanity checks (invoices/receipts). Computed live from the draft
+  // values so mismatches update as the reviewer edits. Non-blocking warnings — they flag
+  // likely OCR errors (a mistyped digit that a human skims past) without gating approval.
+  const arithmeticIssues = useMemo(() => {
+    const num = (key: string) =>
+      parseAmount(key in draftValues ? draftValues[key] : (fields.find((f) => f.key === key)?.value ?? null));
+    const subtotal = num("SUBTOTAL");
+    const tax = num("TAX");
+    const discount = num("DISCOUNT");
+    const total = num("TOTAL");
+    const lineAmounts = draftItems.map((li) => li.amount).filter((a): a is number => a != null);
+    const lineSum = lineAmounts.reduce((s, a) => s + a, 0);
+    const tol = (ref: number) => Math.max(0.02, Math.abs(ref) * 0.005);
+    const issues: string[] = [];
+
+    // subtotal + tax − discount = total
+    if (subtotal != null && total != null) {
+      const expected = subtotal + (tax ?? 0) - (discount ?? 0);
+      if (Math.abs(expected - total) > tol(total)) {
+        const parts = [`Subtotal ${fmtMoney(subtotal)}`];
+        if (tax != null) parts.push(`+ tax ${fmtMoney(tax)}`);
+        if (discount != null) parts.push(`− discount ${fmtMoney(discount)}`);
+        issues.push(`${parts.join(" ")} = ${fmtMoney(expected)}, but Total is ${fmtMoney(total)}`);
+      }
+    }
+
+    // Σ line amounts ≈ subtotal (or Total when there's no separate subtotal/tax).
+    if (lineAmounts.length > 0) {
+      const ref = subtotal ?? (tax == null ? total : null);
+      const refLabel = subtotal != null ? "Subtotal" : "Total";
+      if (ref != null && Math.abs(lineSum - ref) > tol(ref)) {
+        issues.push(`Line items sum to ${fmtMoney(lineSum)}, but ${refLabel} is ${fmtMoney(ref)}`);
+      }
+    }
+    return issues;
+  }, [draftValues, draftItems, fields]);
+
   const handleApprove = () => {
     if (!result || !canApprove) return;
     if (
@@ -352,21 +410,28 @@ export function DocumentDataPanel({
       {/* Footer: validation + save + review workflow */}
       {result && (
         <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
-          {result.status !== "approved" && (missingRequired.length > 0 || lowConfidenceCount > 0) && (
-            <div className="px-4 pt-2.5 text-xs space-y-0.5" aria-live="polite">
-              {missingRequired.length > 0 && (
-                <p className="inline-flex items-start gap-1 text-red-600 dark:text-red-400">
-                  <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
-                  <span>Required to approve: {missingRequired.map((d) => d.label).join(", ")}</span>
-                </p>
-              )}
-              {lowConfidenceCount > 0 && (
-                <p className="text-amber-600 dark:text-amber-400">
-                  {lowConfidenceCount} field{lowConfidenceCount > 1 ? "s" : ""} with low confidence — review recommended
-                </p>
-              )}
-            </div>
-          )}
+          {result.status !== "approved" &&
+            (missingRequired.length > 0 || lowConfidenceCount > 0 || arithmeticIssues.length > 0) && (
+              <div className="px-4 pt-2.5 text-xs space-y-0.5" aria-live="polite">
+                {missingRequired.length > 0 && (
+                  <p className="inline-flex items-start gap-1 text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
+                    <span>Required to approve: {missingRequired.map((d) => d.label).join(", ")}</span>
+                  </p>
+                )}
+                {arithmeticIssues.map((msg) => (
+                  <p key={msg} className="inline-flex items-start gap-1 text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
+                    <span>{msg}</span>
+                  </p>
+                ))}
+                {lowConfidenceCount > 0 && (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    {lowConfidenceCount} field{lowConfidenceCount > 1 ? "s" : ""} with low confidence — review recommended
+                  </p>
+                )}
+              </div>
+            )}
 
           <div className="flex items-center justify-between gap-2 px-4 py-3">
             <div className="text-xs min-w-0">
