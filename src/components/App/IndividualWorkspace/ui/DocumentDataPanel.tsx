@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Check, Crosshair, FileQuestion, Loader2, Pencil, RotateCcw } from "lucide-react";
 import { useUpdateDocumentResult, useUpdateDocumentResultStatus } from "../hooks";
 import type { DocumentResultData, ExtractedField, LineItem, LineItemEdit } from "../types";
@@ -612,12 +612,10 @@ function LineItemsTable({
                 <td className="px-2 py-1 align-top text-right text-gray-500 dark:text-gray-400 tabular-nums">
                   {item.rowIndex + 1}
                 </td>
-                <td className="px-1 py-1 align-top">
-                  <textarea
-                    rows={1}
+                <td className="px-1 py-1 align-top min-w-[12rem]">
+                  <AutoGrowTextarea
                     value={item.description ?? ""}
-                    onChange={(e) => onTextChange(i, "description", e.target.value)}
-                    className={`${inputClass} resize-none`}
+                    onChange={(v) => onTextChange(i, "description", v)}
                   />
                 </td>
                 <NumberCell value={item.quantity} onChange={(v) => onNumberChange(i, "quantity", v)} />
@@ -631,6 +629,30 @@ function LineItemsTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * Textarea that grows to fit its content so long, wrapped line-item descriptions are
+ * fully visible and editable in the cramped table cell (instead of a clipped single row).
+ */
+function AutoGrowTextarea({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      title={value || undefined}
+      className={`${inputClass} resize-none overflow-hidden leading-snug`}
+    />
   );
 }
 
