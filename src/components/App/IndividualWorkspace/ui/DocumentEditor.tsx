@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowLeft,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -15,6 +16,7 @@ import { useRouter } from "@/i18n/navigation";
 import { useDocumentOcr, useWorkspaceDocumentNav } from "../hooks";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import type { OverlayBox } from "../types";
+import { exportDocument, type ExportFormat } from "../lib/exportDocument";
 import { DocumentDataPanel } from "./DocumentDataPanel";
 
 // react-pdf / pdf.js touch browser-only APIs — load the viewer client-side only.
@@ -94,6 +96,20 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
   const goToDoc = (id: string) =>
     guardedNavigate(`/workspace/${workspaceId}/document/${id}`);
 
+  // Export the current document's corrected values. Disabled while there are unsaved
+  // edits so the export never silently omits them.
+  const [exportOpen, setExportOpen] = useState(false);
+  const canExport = !!data?.document && !!result && !dirty;
+  const handleExport = (format: ExportFormat) => {
+    if (!data?.document || !result) return;
+    exportDocument(
+      { id: data.document.id, fileName: data.document.fileName, type: data.document.type },
+      result,
+      format,
+    );
+    setExportOpen(false);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header: back + title */}
@@ -118,16 +134,47 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
           </div>
         </div>
 
-        {/* Export — wired in a later phase */}
-        <button
-          type="button"
-          disabled
-          title="Export (coming soon)"
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 rounded-md cursor-not-allowed self-start sm:self-auto"
-        >
-          <Download className="h-4 w-4" />
-          Export
-        </button>
+        {/* Export the current document's corrected values (JSON / CSV) */}
+        <div className="relative self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setExportOpen((o) => !o)}
+            disabled={!canExport}
+            title={
+              !result
+                ? "No extracted data to export"
+                : dirty
+                  ? "Save changes to export"
+                  : "Export corrected values"
+            }
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          {exportOpen && canExport && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+              <div className="absolute right-0 mt-1 z-20 w-44 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1">
+                <button
+                  type="button"
+                  onClick={() => handleExport("json")}
+                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExport("csv")}
+                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  CSV <span className="text-gray-400 dark:text-gray-500">(Excel)</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Toolbar: cross-document navigation */}

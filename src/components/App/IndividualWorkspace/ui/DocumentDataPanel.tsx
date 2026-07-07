@@ -47,6 +47,21 @@ function fieldLabel(field: ExtractedField): string {
 const inputClass =
   "w-full bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-indigo-400 rounded px-1.5 py-1 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-400";
 
+// Fields that must be present (non-empty) before a document can be approved. Keyed by
+// canonical docType; unlisted types have no required fields.
+const REQUIRED_BY_DOCTYPE: Record<string, { key: string; label: string }[]> = {
+  INVOICE: [
+    { key: "VENDOR_NAME", label: "Vendor" },
+    { key: "INVOICE_NUMBER", label: "Invoice number" },
+    { key: "INVOICE_DATE", label: "Invoice date" },
+    { key: "TOTAL", label: "Total" },
+  ],
+  RECEIPT: [
+    { key: "VENDOR_NAME", label: "Vendor" },
+    { key: "TOTAL", label: "Total" },
+  ],
+};
+
 /**
  * Right-pane extracted-data view. Header fields and line items are editable and mapped:
  * each carries its OCR confidence and (via its id) a bounding box on the document, so a
@@ -169,6 +184,37 @@ export function DocumentDataPanel({
     updateStatus.mutate({ resultId: result.id, status });
   };
 
+  // Pre-approval validation. Required fields must be non-empty (errors, block approve);
+  // low-confidence fields left unedited are surfaced as warnings (approve with confirm).
+  const currentValue = (key: string): string => {
+    if (key in draftValues) return draftValues[key];
+    return fields.find((f) => f.key === key)?.value ?? "";
+  };
+  const requiredDefs = result ? REQUIRED_BY_DOCTYPE[result.docType] ?? [] : [];
+  const missingRequired = requiredDefs.filter((d) => currentValue(d.key).trim() === "");
+  const lowConfidenceCount = useMemo(
+    () =>
+      fields.filter((f) => {
+        const edited = f.isEdited || (draftValues[f.key] ?? "") !== (f.value ?? "");
+        return needsReview(confidenceLevel(f.confidence)) && !edited;
+      }).length,
+    [fields, draftValues],
+  );
+  const canApprove = missingRequired.length === 0;
+
+  const handleApprove = () => {
+    if (!result || !canApprove) return;
+    if (
+      lowConfidenceCount > 0 &&
+      !window.confirm(
+        `${lowConfidenceCount} field(s) have low OCR confidence and weren't edited. Approve anyway?`,
+      )
+    ) {
+      return;
+    }
+    handleStatus("approved");
+  };
+
   const scrollSelectedIntoView = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView({ block: "nearest" });
   }, []);
@@ -254,44 +300,66 @@ export function DocumentDataPanel({
         )}
       </div>
 
-      {/* Footer: save + review workflow */}
+      {/* Footer: validation + save + review workflow */}
       {result && (
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
-          <div className="text-xs min-w-0">
-            {updateResult.isError ? (
-              <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
-                <AlertCircle className="h-3.5 w-3.5" /> Failed to save
-              </span>
-            ) : dirty ? (
-              <span className="text-amber-600 dark:text-amber-400">Unsaved changes</span>
-            ) : updateResult.isSuccess ? (
-              <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                <Check className="h-3.5 w-3.5" /> Saved
-              </span>
-            ) : null}
-          </div>
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+          {result.status !== "approved" && (missingRequired.length > 0 || lowConfidenceCount > 0) && (
+            <div className="px-4 pt-2.5 text-xs space-y-0.5">
+              {missingRequired.length > 0 && (
+                <p className="inline-flex items-start gap-1 text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
+                  <span>Required to approve: {missingRequired.map((d) => d.label).join(", ")}</span>
+                </p>
+              )}
+              {lowConfidenceCount > 0 && (
+                <p className="text-amber-600 dark:text-amber-400">
+                  {lowConfidenceCount} field{lowConfidenceCount > 1 ? "s" : ""} with low confidence — review recommended
+                </p>
+              )}
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            {result.status === "draft" && (
-              <ReviewButton onClick={() => handleStatus("reviewed")} disabled={dirty || updateStatus.isPending}>
-                Mark reviewed
-              </ReviewButton>
-            )}
-            {result.status !== "approved" && (
-              <ReviewButton onClick={() => handleStatus("approved")} disabled={dirty || updateStatus.isPending}>
-                Approve
-              </ReviewButton>
-            )}
+          <div className="flex items-center justify-between gap-2 px-4 py-3">
+            <div className="text-xs min-w-0">
+              {updateResult.isError ? (
+                <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5" /> Failed to save
+                </span>
+              ) : dirty ? (
+                <span className="text-amber-600 dark:text-amber-400">Unsaved changes</span>
+              ) : updateResult.isSuccess ? (
+                <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                  <Check className="h-3.5 w-3.5" /> Saved
+                </span>
+              ) : null}
+            </div>
 
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!dirty || updateResult.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {updateResult.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save
-            </button>
+            <div className="flex items-center gap-2">
+              {result.status === "draft" && (
+                <ReviewButton onClick={() => handleStatus("reviewed")} disabled={dirty || updateStatus.isPending}>
+                  Mark reviewed
+                </ReviewButton>
+              )}
+              {result.status !== "approved" && (
+                <ReviewButton
+                  onClick={handleApprove}
+                  disabled={dirty || updateStatus.isPending || !canApprove}
+                  title={!canApprove ? "Fill required fields to approve" : undefined}
+                >
+                  Approve
+                </ReviewButton>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!dirty || updateResult.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {updateResult.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -303,17 +371,19 @@ function ReviewButton({
   children,
   onClick,
   disabled,
+  title,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={disabled ? "Save changes first" : undefined}
+      title={title ?? (disabled ? "Save changes first" : undefined)}
       className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
     >
       {children}
