@@ -15,6 +15,7 @@ export {
   useWorkspaceDocuments,
   useDocument,
   useDocumentOcr,
+  useWorkspaceDocumentNav,
   useOCRResults,
   useProcessingJobs,
   useUploadDocuments,

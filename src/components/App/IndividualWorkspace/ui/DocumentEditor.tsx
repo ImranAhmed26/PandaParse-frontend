@@ -12,7 +12,8 @@ import {
   PanelRight,
 } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
-import { useDocumentOcr } from "../hooks";
+import { useDocumentOcr, useWorkspaceDocumentNav } from "../hooks";
+import { useWorkspaceStore } from "../store/workspaceStore";
 import type { OverlayBox } from "../types";
 import { DocumentDataPanel } from "./DocumentDataPanel";
 
@@ -68,13 +69,30 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
     setHoveredFieldId(null);
   }, [documentId]);
 
-  // Unsaved-changes guard for the back button (panel reports its dirty state).
+  // Unsaved-changes guard shared by the back button and cross-document navigation
+  // (the panel reports its dirty state up here).
   const router = useRouter();
   const [dirty, setDirty] = useState(false);
-  const handleBack = () => {
+  const guardedNavigate = (path: string) => {
     if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
-    router.push(`/workspace/${workspaceId}`);
+    router.push(path);
   };
+  const handleBack = () => guardedNavigate(`/workspace/${workspaceId}`);
+
+  // Cross-document navigation: the ordered workspace list (same order as the table),
+  // matched to the current document to compute Previous / Next and "N of M".
+  const filters = useWorkspaceStore((s) => s.filters);
+  const search = useWorkspaceStore((s) => s.search);
+  const sort = useWorkspaceStore((s) => s.sort);
+  const { data: navData } = useWorkspaceDocumentNav(workspaceId, { filters, search, sort });
+  const navDocs = navData?.data ?? [];
+  const currentIndex = navDocs.findIndex((d) => d.id === documentId);
+  const total = navData?.total ?? navDocs.length;
+  const prevDoc = currentIndex > 0 ? navDocs[currentIndex - 1] : null;
+  const nextDoc =
+    currentIndex >= 0 && currentIndex < navDocs.length - 1 ? navDocs[currentIndex + 1] : null;
+  const goToDoc = (id: string) =>
+    guardedNavigate(`/workspace/${workspaceId}/document/${id}`);
 
   return (
     <div className="flex flex-col gap-4">
@@ -112,21 +130,25 @@ export function DocumentEditor({ workspaceId, documentId }: DocumentEditorProps)
         </button>
       </div>
 
-      {/* Toolbar: cross-document navigation — wired in a later phase */}
+      {/* Toolbar: cross-document navigation */}
       <div className="flex items-center justify-between border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2">
         <button
           type="button"
-          disabled
-          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+          onClick={() => prevDoc && goToDoc(prevDoc.id)}
+          disabled={!prevDoc}
+          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-700 dark:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
           Previous
         </button>
-        <span className="text-xs text-gray-500 dark:text-gray-400">Document — of —</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+          {currentIndex >= 0 ? `Document ${currentIndex + 1} of ${total}` : "Document"}
+        </span>
         <button
           type="button"
-          disabled
-          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+          onClick={() => nextDoc && goToDoc(nextDoc.id)}
+          disabled={!nextDoc}
+          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-700 dark:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
         >
           Next
           <ChevronRight className="h-4 w-4" />

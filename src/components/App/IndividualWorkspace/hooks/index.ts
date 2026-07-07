@@ -8,6 +8,9 @@ import type {
   ExportRequest,
   DocumentOcrResponse,
   UpdateDocumentResultPayload,
+  DocumentFilters,
+  DocumentSearch,
+  DocumentSort,
 } from "../types";
 
 // Query Keys - centralized for better cache management
@@ -20,8 +23,44 @@ export const individualWorkspaceKeys = {
   document: (id: string) => [...individualWorkspaceKeys.all, "document", id] as const,
   ocrResults: (documentId: string) => [...individualWorkspaceKeys.all, "ocr", documentId] as const,
   documentOcr: (documentId: string) => [...individualWorkspaceKeys.all, "document-ocr", documentId] as const,
+  documentNav: (workspaceId: string, params: GetDocumentsParams) =>
+    [...individualWorkspaceKeys.documents(workspaceId), "nav", params] as const,
   processingJobs: (workspaceId: string) => [...individualWorkspaceKeys.all, "jobs", workspaceId] as const,
 };
+
+// Max documents fetched for in-editor prev/next. Comfortably covers a workspace's
+// worth of review; beyond this, navigation spans the most-recent NAV_LIMIT documents.
+const NAV_LIMIT = 200;
+
+/**
+ * Fetch the workspace's document list (id + name, in the same order the table shows)
+ * purely for the editor's cross-document Previous/Next. Unlike `useWorkspaceDocuments`
+ * this writes nothing to the workspace store, so it can't disturb the table's state.
+ */
+export function useWorkspaceDocumentNav(
+  workspaceId: string,
+  opts?: { filters?: DocumentFilters; search?: DocumentSearch; sort?: DocumentSort },
+) {
+  const params: GetDocumentsParams = {
+    workspaceId,
+    page: 1,
+    limit: NAV_LIMIT,
+    filters: opts?.filters,
+    search: opts?.search,
+    sort: opts?.sort,
+  };
+  return useQuery({
+    queryKey: individualWorkspaceKeys.documentNav(workspaceId, params),
+    queryFn: async () => {
+      const response = await individualWorkspaceApi.getWorkspaceDocuments(params);
+      return response.data; // { data, total, page, limit, totalPages }
+    },
+    enabled: !!workspaceId,
+    staleTime: 1000 * 30,
+    placeholderData: keepPreviousData,
+    meta: { errorMessage: "Failed to load document list" },
+  });
+}
 
 // Hook to fetch workspace details
 export function useWorkspaceDetails(workspaceId: string) {
