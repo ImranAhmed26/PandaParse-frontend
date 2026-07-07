@@ -26,6 +26,8 @@ export interface ExtractedField {
   dataType: FieldDataType;
   detectedValue: string | null;
   value: string | null;
+  /** Parsed numeric value for CURRENCY/NUMBER fields (value stays raw text). */
+  numericValue: number | null;
   confidence: number | null;
   page: number;
   boundingBox: NormalizedBox | null;
@@ -41,6 +43,8 @@ export interface LineItem {
   unitPrice: number | null;
   amount: number | null;
   tax: number | null;
+  /** Per-line VAT/tax rate as a percent (e.g. 10 for "10%"), when present. */
+  taxRate: number | null;
   productCode: string | null;
   boundingBox: NormalizedBox | null;
   confidence: number | null;
@@ -101,6 +105,7 @@ export interface LineItemEdit {
   unitPrice?: number | null;
   amount?: number | null;
   tax?: number | null;
+  taxRate?: number | null;
   productCode?: string | null;
 }
 

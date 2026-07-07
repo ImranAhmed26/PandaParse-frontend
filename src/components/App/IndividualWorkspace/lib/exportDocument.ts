@@ -26,6 +26,7 @@ export function buildJson(doc: ExportDoc, result: DocumentResultData): string {
       key: f.key,
       label: f.label,
       value: f.value,
+      numericValue: f.numericValue,
       confidence: f.confidence,
     })),
     lineItems: result.lineItems.map((li) => ({
@@ -35,6 +36,7 @@ export function buildJson(doc: ExportDoc, result: DocumentResultData): string {
       unitPrice: li.unitPrice,
       amount: li.amount,
       tax: li.tax,
+      taxRate: li.taxRate,
       productCode: li.productCode,
     })),
   };
@@ -69,7 +71,9 @@ export function buildCsv(result: DocumentResultData): string {
   if (result.lineItems.length > 0) {
     lines.push("");
     lines.push("Line Items");
-    lines.push(csvRow(["Row", "Description", "Quantity", "Unit Price", "Amount", "Tax", "Product Code"]));
+    lines.push(
+      csvRow(["Row", "Description", "Quantity", "Unit Price", "Amount", "Tax", "Tax %", "Product Code"]),
+    );
     for (const li of result.lineItems) {
       lines.push(
         csvRow([
@@ -79,6 +83,7 @@ export function buildCsv(result: DocumentResultData): string {
           li.unitPrice,
           li.amount,
           li.tax,
+          li.taxRate,
           li.productCode,
         ]),
       );

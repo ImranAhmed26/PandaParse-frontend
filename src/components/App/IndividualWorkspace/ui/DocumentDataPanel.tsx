@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, Crosshair, FileQuestion, Loader2, Pencil } from "lucide-react";
+import { AlertCircle, Check, Crosshair, FileQuestion, Loader2, Pencil, RotateCcw } from "lucide-react";
 import { useUpdateDocumentResult, useUpdateDocumentResultStatus } from "../hooks";
 import type { DocumentResultData, ExtractedField, LineItem, LineItemEdit } from "../types";
 
@@ -131,7 +131,11 @@ export function DocumentDataPanel({
     );
     setItemsDirty(true);
   };
-  const setItemNumber = (i: number, field: "quantity" | "unitPrice" | "amount" | "tax", raw: string) => {
+  const setItemNumber = (
+    i: number,
+    field: "quantity" | "unitPrice" | "amount" | "tax" | "taxRate",
+    raw: string,
+  ) => {
     const t = raw.trim();
     let val: number | null;
     if (t === "") val = null;
@@ -158,6 +162,7 @@ export function DocumentDataPanel({
           unitPrice: li.unitPrice,
           amount: li.amount,
           tax: li.tax,
+          taxRate: li.taxRate,
           productCode: li.productCode,
         }))
       : undefined;
@@ -464,12 +469,25 @@ function FieldRow({
         <div className="flex items-center gap-1.5">
           <label className="text-xs text-gray-500 dark:text-gray-400">{fieldLabel(field)}</label>
           {edited && (
-            <span
-              className="inline-flex items-center gap-0.5 text-[10px] text-indigo-500 dark:text-indigo-400"
-              title={`Detected: ${field.detectedValue ?? "—"}`}
-            >
-              <Pencil className="h-2.5 w-2.5" /> edited
-            </span>
+            <>
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] text-indigo-500 dark:text-indigo-400"
+                title={`Detected: ${field.detectedValue ?? "—"}`}
+              >
+                <Pencil className="h-2.5 w-2.5" /> edited
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(field.detectedValue ?? "");
+                }}
+                title={`Revert to OCR value: ${field.detectedValue ?? "—"}`}
+                className="inline-flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                <RotateCcw className="h-2.5 w-2.5" /> revert
+              </button>
+            </>
           )}
         </div>
         <input
@@ -541,7 +559,11 @@ function LineItemsTable({
   onHoverField: (id: string | null) => void;
   rowRefForId: (node: HTMLElement | null) => void;
   onTextChange: (i: number, field: "description" | "productCode", raw: string) => void;
-  onNumberChange: (i: number, field: "quantity" | "unitPrice" | "amount" | "tax", raw: string) => void;
+  onNumberChange: (
+    i: number,
+    field: "quantity" | "unitPrice" | "amount" | "tax" | "taxRate",
+    raw: string,
+  ) => void;
 }) {
   return (
     <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -549,11 +571,13 @@ function LineItemsTable({
         <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs text-gray-500 dark:text-gray-400">
           <tr>
             <th className="w-8" />
+            <th className="text-right font-medium px-2 py-2 w-8">#</th>
             <th className="text-left font-medium px-2 py-2">Description</th>
             <th className="text-right font-medium px-2 py-2 w-16">Qty</th>
             <th className="text-right font-medium px-2 py-2 w-24">Unit price</th>
             <th className="text-right font-medium px-2 py-2 w-24">Amount</th>
             <th className="text-right font-medium px-2 py-2 w-20">Tax</th>
+            <th className="text-right font-medium px-2 py-2 w-16">Tax %</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -585,6 +609,9 @@ function LineItemsTable({
                     </button>
                   )}
                 </td>
+                <td className="px-2 py-1 align-top text-right text-gray-500 dark:text-gray-400 tabular-nums">
+                  {item.rowIndex + 1}
+                </td>
                 <td className="px-1 py-1 align-top">
                   <textarea
                     rows={1}
@@ -597,6 +624,7 @@ function LineItemsTable({
                 <NumberCell value={item.unitPrice} onChange={(v) => onNumberChange(i, "unitPrice", v)} />
                 <NumberCell value={item.amount} onChange={(v) => onNumberChange(i, "amount", v)} />
                 <NumberCell value={item.tax} onChange={(v) => onNumberChange(i, "tax", v)} />
+                <NumberCell value={item.taxRate} onChange={(v) => onNumberChange(i, "taxRate", v)} />
               </tr>
             );
           })}
