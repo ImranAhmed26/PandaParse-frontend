@@ -1,5 +1,8 @@
 // Core data models for Individual Workspace feature
 
+// Document Editor / OCR contract types (viewer, extracted data, editing, export).
+export * from "./ocr";
+
 export interface Workspace {
   id: string;
   name: string;

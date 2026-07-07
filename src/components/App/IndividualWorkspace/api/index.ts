@@ -16,7 +16,46 @@ import type {
   ExportRequest,
   BulkDeleteResponse,
   WorkspaceDeleteResponse,
+  DocumentOcrResponse,
+  DocumentResultData,
+  UpdateDocumentResultPayload,
 } from "../types";
+
+// Map the backend DocumentResultResponseDto to our DocumentResultData shape.
+function mapDocumentResult(r: any): DocumentResultData {
+  return {
+    id: r.id,
+    status: r.status,
+    docType: r.docType,
+    fields: (r.fields ?? []).map((f: any) => ({
+      id: f.id,
+      key: f.key,
+      label: f.label ?? null,
+      dataType: f.dataType,
+      detectedValue: f.detectedValue ?? null,
+      value: f.value ?? null,
+      confidence: f.confidence ?? null,
+      page: f.page ?? 1,
+      boundingBox: f.boundingBox ?? null,
+      isEdited: !!f.isEdited,
+    })),
+    lineItems: (r.lineItems ?? []).map((li: any) => ({
+      id: li.id,
+      rowIndex: li.rowIndex,
+      description: li.description ?? null,
+      quantity: li.quantity ?? null,
+      unitPrice: li.unitPrice ?? null,
+      amount: li.amount ?? null,
+      tax: li.tax ?? null,
+      productCode: li.productCode ?? null,
+      boundingBox: li.boundingBox ?? null,
+      confidence: li.confidence ?? null,
+      cells: li.cells ?? null,
+    })),
+    reviewedAt: r.reviewedAt ?? null,
+    approvedAt: r.approvedAt ?? null,
+  };
+}
 
 // Import backend types from upload API
 
@@ -258,6 +297,56 @@ export const individualWorkspaceApi = {
       console.error(`🏢 [Individual Workspace API] Error fetching document:`, error);
       throw new Error(`Failed to fetch document: ${error.message}`);
     }
+  },
+
+  // Get the bundled Document Editor payload: presigned file URL + editable result
+  // + raw parsed Textract JSON. Backend returns the contract shape directly, so this
+  // is a thin passthrough (no transform).
+  getDocumentOcr: async (documentId: string): Promise<ApiResponse<DocumentOcrResponse>> => {
+    console.log(`🏢 [Individual Workspace API] Fetching document OCR payload: ${documentId}`);
+
+    const response = await api.get<DocumentOcrResponse>(`/documents/${documentId}/ocr`);
+
+    return {
+      data: response.data,
+      success: true,
+      status: 200,
+      message: "Document OCR payload retrieved successfully",
+    };
+  },
+
+  // Persist edited summary / line items for a document result.
+  updateDocumentResult: async (
+    resultId: string,
+    payload: UpdateDocumentResultPayload,
+  ): Promise<ApiResponse<DocumentResultData>> => {
+    console.log(`🏢 [Individual Workspace API] Updating document result: ${resultId}`);
+    const response = await api.patch<any>(`/document-results/${resultId}`, payload);
+    return {
+      data: mapDocumentResult(response.data),
+      success: true,
+      status: 200,
+      message: "Document result updated successfully",
+    };
+  },
+
+  // Update the review status (draft -> reviewed -> approved) of a document result.
+  updateDocumentResultStatus: async (
+    resultId: string,
+    status: string,
+    approvedById?: string,
+  ): Promise<ApiResponse<DocumentResultData>> => {
+    console.log(`🏢 [Individual Workspace API] Updating result status: ${resultId} -> ${status}`);
+    const response = await api.patch<any>(`/document-results/${resultId}/status`, {
+      status,
+      ...(approvedById ? { approvedById } : {}),
+    });
+    return {
+      data: mapDocumentResult(response.data),
+      success: true,
+      status: 200,
+      message: "Document result status updated successfully",
+    };
   },
 
   // Get OCR results for a document

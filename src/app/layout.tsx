@@ -18,6 +18,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: metadataConst.title,
   description: metadataConst.description,
+  other: {
+    // Opt out of the Dark Reader browser extension. The app has its own
+    // (next-themes) dark mode, and Dark Reader rewrites SVG attributes/styles
+    // before React hydrates, causing hydration mismatches. This meta tells the
+    // extension to leave the DOM untouched. See https://github.com/darkreader/darkreader
+    "darkreader-lock": "",
+  },
 };
 
 export default function RootLayout({

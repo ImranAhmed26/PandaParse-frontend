@@ -1,7 +1,17 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { individualWorkspaceApi } from "../api";
 import { useWorkspaceStore } from "../store/workspaceStore";
-import type { GetDocumentsParams, UploadDocumentRequest, UpdateWorkspaceRequest, ExportRequest } from "../types";
+import type {
+  GetDocumentsParams,
+  UploadDocumentRequest,
+  UpdateWorkspaceRequest,
+  ExportRequest,
+  DocumentOcrResponse,
+  UpdateDocumentResultPayload,
+  DocumentFilters,
+  DocumentSearch,
+  DocumentSort,
+} from "../types";
 
 // Query Keys - centralized for better cache management
 export const individualWorkspaceKeys = {
@@ -12,8 +22,45 @@ export const individualWorkspaceKeys = {
     [...individualWorkspaceKeys.documents(workspaceId), "list", params] as const,
   document: (id: string) => [...individualWorkspaceKeys.all, "document", id] as const,
   ocrResults: (documentId: string) => [...individualWorkspaceKeys.all, "ocr", documentId] as const,
+  documentOcr: (documentId: string) => [...individualWorkspaceKeys.all, "document-ocr", documentId] as const,
+  documentNav: (workspaceId: string, params: GetDocumentsParams) =>
+    [...individualWorkspaceKeys.documents(workspaceId), "nav", params] as const,
   processingJobs: (workspaceId: string) => [...individualWorkspaceKeys.all, "jobs", workspaceId] as const,
 };
+
+// Max documents fetched for in-editor prev/next. Comfortably covers a workspace's
+// worth of review; beyond this, navigation spans the most-recent NAV_LIMIT documents.
+const NAV_LIMIT = 200;
+
+/**
+ * Fetch the workspace's document list (id + name, in the same order the table shows)
+ * purely for the editor's cross-document Previous/Next. Unlike `useWorkspaceDocuments`
+ * this writes nothing to the workspace store, so it can't disturb the table's state.
+ */
+export function useWorkspaceDocumentNav(
+  workspaceId: string,
+  opts?: { filters?: DocumentFilters; search?: DocumentSearch; sort?: DocumentSort },
+) {
+  const params: GetDocumentsParams = {
+    workspaceId,
+    page: 1,
+    limit: NAV_LIMIT,
+    filters: opts?.filters,
+    search: opts?.search,
+    sort: opts?.sort,
+  };
+  return useQuery({
+    queryKey: individualWorkspaceKeys.documentNav(workspaceId, params),
+    queryFn: async () => {
+      const response = await individualWorkspaceApi.getWorkspaceDocuments(params);
+      return response.data; // { data, total, page, limit, totalPages }
+    },
+    enabled: !!workspaceId,
+    staleTime: 1000 * 30,
+    placeholderData: keepPreviousData,
+    meta: { errorMessage: "Failed to load document list" },
+  });
+}
 
 // Hook to fetch workspace details
 export function useWorkspaceDetails(workspaceId: string) {
@@ -128,6 +175,78 @@ export function useDocument(documentId: string) {
     staleTime: 1000 * 60 * 5, // 5 minutes
     meta: {
       errorMessage: "Failed to load document",
+    },
+  });
+}
+
+// Hook to fetch the bundled Document Editor payload (file URL + result + parsed OCR).
+// This is the editor's single data source across all editor phases.
+export function useDocumentOcr(documentId: string) {
+  return useQuery({
+    queryKey: individualWorkspaceKeys.documentOcr(documentId),
+    queryFn: async () => {
+      const response = await individualWorkspaceApi.getDocumentOcr(documentId);
+      return response.data;
+    },
+    enabled: !!documentId,
+    // Keep below the presigned file-URL TTL (15 min) so the viewer never gets a
+    // stale/expired URL from cache. Don't refetch on focus — that would reload the file.
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error: any) => {
+      if (error?.status === 401 || error?.status === 403 || error?.status === 404) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    meta: {
+      errorMessage: "Failed to load document data",
+    },
+  });
+}
+
+// Hook to persist edited summary / line items. Patches the documentOcr cache from the
+// response so the editor reflects saved values without re-reading the parsed S3 JSON.
+export function useUpdateDocumentResult(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { resultId: string; payload: UpdateDocumentResultPayload }) => {
+      const response = await individualWorkspaceApi.updateDocumentResult(vars.resultId, vars.payload);
+      return response.data;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<DocumentOcrResponse>(
+        individualWorkspaceKeys.documentOcr(documentId),
+        (old) => (old ? { ...old, result: updated } : old),
+      );
+    },
+    meta: {
+      successMessage: "Changes saved",
+      errorMessage: "Failed to save changes",
+    },
+  });
+}
+
+// Hook to advance the review workflow (draft -> reviewed -> approved).
+export function useUpdateDocumentResultStatus(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { resultId: string; status: string; approvedById?: string }) => {
+      const response = await individualWorkspaceApi.updateDocumentResultStatus(
+        vars.resultId,
+        vars.status,
+        vars.approvedById,
+      );
+      return response.data;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<DocumentOcrResponse>(
+        individualWorkspaceKeys.documentOcr(documentId),
+        (old) => (old ? { ...old, result: updated } : old),
+      );
+    },
+    meta: {
+      errorMessage: "Failed to update status",
     },
   });
 }

@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@/i18n/navigation";
 import { useWorkspaceStore } from "../store/workspaceStore";
+import type { Document } from "../types";
 import {
   individualWorkspaceKeys,
   useDeleteDocument,
@@ -15,6 +17,7 @@ import {
  */
 export function useDocumentHandlers() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const documents = useWorkspaceStore((state) => state.documents);
   const workspace = useWorkspaceStore((state) => state.workspace);
   const selectedDocuments = useWorkspaceStore((state) => state.ui.selectedDocuments);
@@ -29,10 +32,12 @@ export function useDocumentHandlers() {
   const reprocessDocumentMutation = useReprocessDocument();
   const exportDocumentsMutation = useExportDocuments();
 
-  // Handle document selection
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDocumentSelect = (_document: any) => {
-    // TODO: Open document viewer
+  // Open the full-page Document Editor for the selected document, staying within
+  // the current workspace context. Locale is handled by the i18n-aware router.
+  const handleDocumentSelect = (document: Document) => {
+    const workspaceId = workspace?.id;
+    if (!workspaceId) return;
+    router.push(`/workspace/${workspaceId}/document/${document.id}`);
   };
 
   // Handle document deletion with confirmation
