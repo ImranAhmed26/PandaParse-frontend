@@ -98,9 +98,23 @@ export function DocumentDataPanel({
 
   const fields = useMemo(() => result?.fields ?? [], [result]);
 
+  // Required fields for this docType, and the ones Textract didn't detect at all — those
+  // get an empty, editable row so the reviewer can add them (otherwise approval is blocked
+  // with nothing to fill in).
+  const requiredDefs = useMemo(
+    () => (result ? REQUIRED_BY_DOCTYPE[result.docType] ?? [] : []),
+    [result],
+  );
+  const missingDefs = useMemo(() => {
+    const present = new Set(fields.map((f) => f.key));
+    return requiredDefs.filter((d) => !present.has(d.key));
+  }, [fields, requiredDefs]);
+
   const fieldsDirty = useMemo(
-    () => fields.some((f) => (draftValues[f.key] ?? "") !== (f.value ?? "")),
-    [fields, draftValues],
+    () =>
+      fields.some((f) => (draftValues[f.key] ?? "") !== (f.value ?? "")) ||
+      missingDefs.some((d) => (draftValues[d.key] ?? "").trim() !== ""),
+    [fields, missingDefs, draftValues],
   );
   const dirty = fieldsDirty || itemsDirty;
 
@@ -154,6 +168,12 @@ export function DocumentDataPanel({
       .filter((f) => (draftValues[f.key] ?? "") !== (f.value ?? ""))
       .map((f) => ({ key: f.key, value: draftValues[f.key] === "" ? null : draftValues[f.key] }));
 
+    // Include newly-typed values for required fields that weren't detected (upserted server-side).
+    for (const d of missingDefs) {
+      const v = draftValues[d.key];
+      if (v != null && v.trim() !== "") fieldEdits.push({ key: d.key, value: v });
+    }
+
     const lineItems: LineItemEdit[] | undefined = itemsDirty
       ? draftItems.map((li) => ({
           rowIndex: li.rowIndex,
@@ -195,7 +215,6 @@ export function DocumentDataPanel({
     if (key in draftValues) return draftValues[key];
     return fields.find((f) => f.key === key)?.value ?? "";
   };
-  const requiredDefs = result ? REQUIRED_BY_DOCTYPE[result.docType] ?? [] : [];
   const missingRequired = requiredDefs.filter((d) => currentValue(d.key).trim() === "");
   const lowConfidenceCount = useMemo(
     () =>
@@ -232,7 +251,7 @@ export function DocumentDataPanel({
     ? fields.filter((f) => needsReview(confidenceLevel(f.confidence)) || f.id === selectedFieldId)
     : fields;
 
-  const hasAnything = fields.length > 0 || draftItems.length > 0;
+  const hasAnything = fields.length > 0 || draftItems.length > 0 || missingDefs.length > 0;
 
   return (
     <div className="h-[75vh] flex flex-col border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/40 overflow-hidden">
@@ -261,29 +280,54 @@ export function DocumentDataPanel({
           <EmptyState />
         ) : (
           <>
-            {fields.length > 0 && (
+            {(fields.length > 0 || missingDefs.length > 0) && (
               <Section title="Fields">
-                {visibleFields.length === 0 ? (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {/* Required fields Textract didn't detect — empty rows so they can be added. */}
+                  {missingDefs.map((d) => (
+                    <FieldRow
+                      key={`missing-${d.key}`}
+                      field={{
+                        id: `missing-${d.key}`,
+                        key: d.key,
+                        label: d.label,
+                        dataType: "STRING",
+                        detectedValue: null,
+                        value: null,
+                        numericValue: null,
+                        confidence: null,
+                        page: 1,
+                        boundingBox: null,
+                        isEdited: false,
+                      }}
+                      value={draftValues[d.key] ?? ""}
+                      onChange={(v) => setFieldValue(d.key, v)}
+                      selected={false}
+                      hovered={false}
+                      onSelect={onSelectField}
+                      onHover={onHoverField}
+                      missing
+                    />
+                  ))}
+                  {visibleFields.map((f) => {
+                    const selected = f.id === selectedFieldId;
+                    return (
+                      <FieldRow
+                        key={f.id}
+                        field={f}
+                        value={draftValues[f.key] ?? ""}
+                        onChange={(v) => setFieldValue(f.key, v)}
+                        selected={selected}
+                        hovered={f.id === hoveredFieldId}
+                        onSelect={onSelectField}
+                        onHover={onHoverField}
+                        rowRef={selected ? scrollSelectedIntoView : undefined}
+                      />
+                    );
+                  })}
+                </div>
+                {onlyReview && visibleFields.length === 0 && missingDefs.length === 0 && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">No fields match this filter.</p>
-                ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                    {visibleFields.map((f) => {
-                      const selected = f.id === selectedFieldId;
-                      return (
-                        <FieldRow
-                          key={f.id}
-                          field={f}
-                          value={draftValues[f.key] ?? ""}
-                          onChange={(v) => setFieldValue(f.key, v)}
-                          selected={selected}
-                          hovered={f.id === hoveredFieldId}
-                          onSelect={onSelectField}
-                          onHover={onHoverField}
-                          rowRef={selected ? scrollSelectedIntoView : undefined}
-                        />
-                      );
-                    })}
-                  </div>
                 )}
               </Section>
             )}
@@ -421,6 +465,7 @@ function FieldRow({
   onSelect,
   onHover,
   rowRef,
+  missing = false,
 }: {
   field: ExtractedField;
   value: string;
@@ -430,11 +475,12 @@ function FieldRow({
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   rowRef?: (node: HTMLElement | null) => void;
+  missing?: boolean;
 }) {
   const level = confidenceLevel(field.confidence);
   const review = needsReview(level);
   const locatable = !!field.boundingBox;
-  const edited = field.isEdited || value !== (field.value ?? "");
+  const edited = !missing && (field.isEdited || value !== (field.value ?? ""));
   return (
     <div
       ref={rowRef}
@@ -449,7 +495,7 @@ function FieldRow({
           : hovered
             ? "bg-gray-50 dark:bg-gray-700/40 border-transparent"
             : "border-transparent"
-      } ${review && !selected ? "border-red-400 dark:border-red-500/70" : ""}`}
+      } ${(review || missing) && !selected ? "border-red-400 dark:border-red-500/70" : ""}`}
     >
       <button
         type="button"
@@ -468,6 +514,11 @@ function FieldRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <label className="text-xs text-gray-500 dark:text-gray-400">{fieldLabel(field)}</label>
+          {missing && (
+            <span className="inline-flex items-center rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-[10px] px-1 py-0.5">
+              required · not detected
+            </span>
+          )}
           {edited && (
             <>
               <span
@@ -493,12 +544,12 @@ function FieldRow({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="—"
+          placeholder={missing ? "Enter value…" : "—"}
           className={inputClass}
         />
       </div>
 
-      <ConfidenceBadge confidence={field.confidence} />
+      {!missing && <ConfidenceBadge confidence={field.confidence} />}
     </div>
   );
 }
@@ -566,69 +617,81 @@ function LineItemsTable({
   ) => void;
 }) {
   return (
-    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs text-gray-500 dark:text-gray-400">
-          <tr>
-            <th className="w-8" />
-            <th className="text-right font-medium px-2 py-2 w-8">#</th>
-            <th className="text-left font-medium px-2 py-2">Description</th>
-            <th className="text-right font-medium px-2 py-2 w-16">Qty</th>
-            <th className="text-right font-medium px-2 py-2 w-24">Unit price</th>
-            <th className="text-right font-medium px-2 py-2 w-24">Amount</th>
-            <th className="text-right font-medium px-2 py-2 w-20">Tax</th>
-            <th className="text-right font-medium px-2 py-2 w-16">Tax %</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-          {items.map((item, i) => {
-            const locatable = !!item.boundingBox;
-            const selected = item.id === selectedFieldId;
-            return (
-              <tr
-                key={item.id}
-                ref={selected ? rowRefForId : undefined}
-                onMouseEnter={locatable ? () => onHoverField(item.id) : undefined}
-                onMouseLeave={locatable ? () => onHoverField(null) : undefined}
-                onClick={locatable ? () => onSelectField(item.id) : undefined}
-                className={`text-gray-900 dark:text-gray-100 ${locatable ? "cursor-pointer" : ""} ${
-                  selected ? "bg-indigo-50 dark:bg-indigo-900/20" : ""
+    <div className="space-y-2">
+      {items.map((item, i) => {
+        const locatable = !!item.boundingBox;
+        const selected = item.id === selectedFieldId;
+        return (
+          <div
+            key={item.id}
+            ref={selected ? rowRefForId : undefined}
+            onMouseEnter={locatable ? () => onHoverField(item.id) : undefined}
+            onMouseLeave={locatable ? () => onHoverField(null) : undefined}
+            className={`rounded-lg border p-2.5 space-y-2 transition-colors ${
+              selected
+                ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
+                : "border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            {/* Row header: locate + number + description */}
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={() => locatable && onSelectField(item.id)}
+                disabled={!locatable}
+                aria-label={locatable ? `Locate line item ${item.rowIndex + 1} on document` : undefined}
+                aria-pressed={locatable ? selected : undefined}
+                title={locatable ? "Locate on document" : "No location for this row"}
+                className={`mt-1 shrink-0 inline-flex items-center gap-1 text-xs tabular-nums disabled:opacity-40 ${
+                  selected ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
                 }`}
               >
-                <td className="px-1 py-1 align-top text-center">
-                  {locatable && (
-                    <button
-                      type="button"
-                      onClick={() => onSelectField(item.id)}
-                      aria-label={`Locate line item ${item.rowIndex + 1} on document`}
-                      aria-pressed={selected}
-                      title="Locate on document"
-                      className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                    >
-                      <Crosshair className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </td>
-                <td className="px-2 py-1 align-top text-right text-gray-500 dark:text-gray-400 tabular-nums">
-                  {item.rowIndex + 1}
-                </td>
-                <td className="px-1 py-1 align-top min-w-[12rem]">
-                  <AutoGrowTextarea
-                    value={item.description ?? ""}
-                    onChange={(v) => onTextChange(i, "description", v)}
-                  />
-                </td>
-                <NumberCell value={item.quantity} onChange={(v) => onNumberChange(i, "quantity", v)} />
-                <NumberCell value={item.unitPrice} onChange={(v) => onNumberChange(i, "unitPrice", v)} />
-                <NumberCell value={item.amount} onChange={(v) => onNumberChange(i, "amount", v)} />
-                <NumberCell value={item.tax} onChange={(v) => onNumberChange(i, "tax", v)} />
-                <NumberCell value={item.taxRate} onChange={(v) => onNumberChange(i, "taxRate", v)} />
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                <Crosshair className="h-3.5 w-3.5" />
+                {item.rowIndex + 1}
+              </button>
+              <div className="min-w-0 flex-1">
+                <AutoGrowTextarea
+                  value={item.description ?? ""}
+                  onChange={(v) => onTextChange(i, "description", v)}
+                />
+              </div>
+            </div>
+
+            {/* Numeric fields, labeled so each value is readable in the narrow panel */}
+            <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 pl-6">
+              <LabeledNumber label="Qty" value={item.quantity} onChange={(v) => onNumberChange(i, "quantity", v)} />
+              <LabeledNumber label="Unit price" value={item.unitPrice} onChange={(v) => onNumberChange(i, "unitPrice", v)} />
+              <LabeledNumber label="Amount" value={item.amount} onChange={(v) => onNumberChange(i, "amount", v)} />
+              <LabeledNumber label="Tax" value={item.tax} onChange={(v) => onNumberChange(i, "tax", v)} />
+              <LabeledNumber label="Tax %" value={item.taxRate} onChange={(v) => onNumberChange(i, "taxRate", v)} />
+            </div>
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+function LabeledNumber({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (raw: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</span>
+      <input
+        type="number"
+        step="any"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-transparent border border-gray-200 dark:border-gray-600 focus:border-indigo-400 rounded px-1.5 py-1 text-sm text-gray-900 dark:text-gray-100 text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-indigo-400"
+      />
+    </label>
   );
 }
 
@@ -653,20 +716,6 @@ function AutoGrowTextarea({ value, onChange }: { value: string; onChange: (v: st
       title={value || undefined}
       className={`${inputClass} resize-none overflow-hidden leading-snug`}
     />
-  );
-}
-
-function NumberCell({ value, onChange }: { value: number | null; onChange: (raw: string) => void }) {
-  return (
-    <td className="px-1 py-1 align-top">
-      <input
-        type="number"
-        step="any"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} text-right`}
-      />
-    </td>
   );
 }
 
