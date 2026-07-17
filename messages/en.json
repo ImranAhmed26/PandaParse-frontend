@@ -6,7 +6,9 @@
   "landing": {
     "banner": {
       "title": "Accurate OCR for invoices, receipts, and documents",
-      "highlightedWords": ["ocr"],
+      "highlightedWords": [
+        "ocr"
+      ],
       "subTitle": "Transparent Pricing, Faster Operations, Lower Costs.",
       "description": "Transform invoices, receipts, and documents into structured JSON/CSV data in seconds. Our AI handles the complexity so your finance team can focus on what matters.",
       "button": {
@@ -19,6 +21,24 @@
           "link": "/learn-more"
         }
       }
+    }
+  },
+  "Meta": {
+    "home": {
+      "title": "OCRParse — Accurate OCR for invoices, receipts & documents",
+      "description": "Transform invoices, receipts, and documents into structured JSON/CSV data in seconds. Our AI handles the complexity so your finance team can focus on what matters."
+    },
+    "about": {
+      "title": "About",
+      "description": "OCRParse turns invoices, receipts, and documents into clean, structured data with AI-powered OCR — built for finance teams that want accuracy without the manual work."
+    },
+    "pricing": {
+      "title": "Pricing",
+      "description": "Simple, transparent pricing for OCRParse. Extract structured data from invoices and receipts at scale — pay only for what you use."
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Get in touch with the OCRParse team about document data extraction, pricing, or integrations. We are happy to help."
     }
   }
 }
