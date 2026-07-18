@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:host": "npm run dev -- --hostname 0.0.0.0 --port 3210",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
