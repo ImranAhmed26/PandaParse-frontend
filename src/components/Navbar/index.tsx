@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import useScroll from "@/lib/hooks/useScroll";
-import { brandData, navLinkData } from "@/constants/AppConstants";
+import { navLinkData } from "@/constants/AppConstants";
+import { Wordmark } from "@/components/Wordmark";
 // import DropdownMenu from '../interface/dropdown/NavMenu';
 import CommonModal from "../Interface/modal/CommonModal";
 import ThemeSwitch from "../Interface/CustomFeature/ThemeSwitch";
@@ -44,8 +45,10 @@ const PrimaryNavbar = () => {
     >
       <div className="w-full max-w-8xl h-20 px-10 text-lg font-medium flex gap-4 items-center justify-between">
         <div className="">
-          <div className="lg:text-2xl font-bold text-brandLight dark:text-brandDark drop-shadow-md">
-            <Link href={"/"}>{brandData.name}</Link>
+          <div className="lg:text-2xl font-bold drop-shadow-md">
+            <Link href={"/"} aria-label="OCRParse — home">
+              <Wordmark />
+            </Link>
             {/* <Image src={PrimaryLogo} width={200} height={40} alt='Business Interaspect' /> */}
           </div>
         </div>

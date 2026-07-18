@@ -110,7 +110,7 @@
 //                     </svg>
 //                   </div>
 //                   <span className="text-2xl font-bold text-gray-800">
-//                     Panda <span className="text-indigo-500">Parse</span>
+//                     <span className="text-indigo-500">OCR</span>Parse
 //                   </span>
 //                 </motion.div>
 //               </div>

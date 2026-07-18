@@ -8,6 +8,8 @@ import Pricing from "@/components/Home/Pricing";
 import FAQ from "@/components/Home/FAQ";
 import FinalCTA from "@/components/Home/FinalCTA";
 import { pageMetadata } from "@/lib/seoMetadata";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { faqs } from "@/constants/faq";
 
 export async function generateMetadata({
   params,
@@ -18,9 +20,22 @@ export async function generateMetadata({
   return pageMetadata(locale, "home");
 }
 
+// FAQ structured data — mirrors the on-page FAQ accordion. Helps rich results and gives
+// AI assistants clean, citable Q&A pairs about the product.
+const faqLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((f) => ({
+    "@type": "Question",
+    name: f.question,
+    acceptedAnswer: { "@type": "Answer", text: f.answer },
+  })),
+};
+
 function Home() {
   return (
     <main className="overflow-hidden">
+      <JsonLd data={faqLd} />
       <Banner />
       <PainPoints />
       <Solution />
