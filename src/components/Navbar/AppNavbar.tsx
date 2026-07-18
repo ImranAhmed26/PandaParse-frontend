@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import ThemeSwitch from "../Interface/CustomFeature/ThemeSwitch";
 import LanguageDropdown from "../Interface/CustomFeature/LanguageSwitch";
 import { useAuthStore } from "@/lib/auth/authStore";
+import UserAvatar from "../Auth/UserAvatar";
 import React from "react";
 
 const AppNavbar = () => {
@@ -23,9 +24,7 @@ const AppNavbar = () => {
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
             </div>
-            <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
-              <span className="text-sm font-medium text-white">{user.name.charAt(0).toUpperCase()}</span>
-            </div>
+            <UserAvatar name={user.name} image={user.image} sizeClassName="h-8 w-8" textClassName="text-sm" />
           </div>
         )}
 

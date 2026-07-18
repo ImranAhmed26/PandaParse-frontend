@@ -6,6 +6,8 @@ import AuthInput from "./AuthInput";
 import { useLoginForm } from "./Hooks/useLoginForm";
 import { Link } from "@/i18n/navigation";
 import { Wordmark } from "@/components/Wordmark";
+import GoogleAuthButton from "./GoogleAuthButton";
+import AuthDivider from "./AuthDivider";
 
 export default function LoginForm() {
   const {
@@ -67,6 +69,11 @@ export default function LoginForm() {
           <AuthButton type="submit" isLoading={isSubmitting} delay={0.6}>
             {isSubmitting ? "Signing in..." : "Sign in"}
           </AuthButton>
+
+          <MotionFadeIn delay={0.65}>
+            <AuthDivider />
+            <GoogleAuthButton text="continue_with" />
+          </MotionFadeIn>
 
           <MotionFadeIn delay={0.7} className="text-center">
             <span className="text-gray-600">New here? </span>

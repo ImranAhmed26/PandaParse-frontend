@@ -1,6 +1,7 @@
 // Environment configuration and validation
 interface EnvironmentConfig {
   NEXT_PUBLIC_API_URL: string;
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID: string;
   NODE_ENV: "development" | "production" | "test";
 }
 
@@ -22,6 +23,7 @@ class Environment {
   private validateAndLoadConfig(): EnvironmentConfig {
     const config = {
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "",
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
       NODE_ENV: (process.env.NODE_ENV as "development" | "production" | "test") || "development",
     };
 
@@ -79,6 +81,11 @@ class Environment {
 
   public get apiUrl(): string {
     return this.config.NEXT_PUBLIC_API_URL;
+  }
+
+  /** Google OAuth Web client ID. Empty string when Google sign-in is not configured. */
+  public get googleClientId(): string {
+    return this.config.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   }
 
   public get nodeEnv(): string {

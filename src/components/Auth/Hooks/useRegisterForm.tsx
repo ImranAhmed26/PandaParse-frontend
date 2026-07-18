@@ -48,6 +48,7 @@ export function useRegisterForm() {
           role: response.data.user.role,
           userType: response.data.user.userType,
           companyName: response.data.user.companyName,
+          image: response.data.user.image,
         }
       );
     },
