@@ -5,6 +5,7 @@ import AuthButton from "./AuthButton";
 import AuthInput from "./AuthInput";
 import { useLoginForm } from "./Hooks/useLoginForm";
 import { Link } from "@/i18n/navigation";
+import { Wordmark } from "@/components/Wordmark";
 
 export default function LoginForm() {
   const {
@@ -20,7 +21,7 @@ export default function LoginForm() {
     <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
       <MotionFadeIn delay={0.3} className="max-w-md mx-auto w-full">
         <h2 className="text-2xl font-bold text-center mb-10 text-gray-800">
-          Welcome back to <span className="text-indigo-500">Panda Parse</span>
+          Welcome back to <Wordmark />
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">

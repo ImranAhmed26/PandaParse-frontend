@@ -6,7 +6,9 @@
   "landing": {
     "banner": {
       "title": "Erstellen Sie KI-Tools mit OCR in wenigen Minuten",
-      "highlightedWords": ["ocr"],
+      "highlightedWords": [
+        "ocr"
+      ],
       "subTitle": "Transparente Preise, Schnellere Abläufe, Niedrigere Kosten.",
       "description": "Beginnen Sie noch heute mit der Extraktion strukturierter Daten aus Dokumenten.",
       "button": {
@@ -19,6 +21,24 @@
           "link": "/learn-more"
         }
       }
+    }
+  },
+  "Meta": {
+    "home": {
+      "title": "OCRParse — Präzise OCR für Rechnungen, Belege und Dokumente",
+      "description": "Verwandeln Sie Rechnungen, Belege und Dokumente in Sekunden in strukturierte JSON/CSV-Daten. Unsere KI übernimmt die Komplexität, damit sich Ihr Finanzteam auf das Wesentliche konzentrieren kann."
+    },
+    "about": {
+      "title": "Über uns",
+      "description": "OCRParse verwandelt Rechnungen, Belege und Dokumente mit KI-gestützter OCR in saubere, strukturierte Daten — entwickelt für Finanzteams, die Genauigkeit ohne manuelle Arbeit wollen."
+    },
+    "pricing": {
+      "title": "Preise",
+      "description": "Einfache, transparente Preise für OCRParse. Extrahieren Sie strukturierte Daten aus Rechnungen und Belegen in großem Umfang — zahlen Sie nur für das, was Sie nutzen."
+    },
+    "contact": {
+      "title": "Kontakt",
+      "description": "Kontaktieren Sie das OCRParse-Team zu Datenextraktion aus Dokumenten, Preisen oder Integrationen. Wir helfen Ihnen gerne."
     }
   }
 }

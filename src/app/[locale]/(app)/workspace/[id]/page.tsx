@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: WorkspacePageProps): Promise<
   // TODO: Fetch workspace name from API to show in title
   // For now, use a generic title instead of showing the workspace ID
   return {
-    title: `Workspace | Panda Parse`,
+    title: `Workspace | OCRParse`,
     description: "Individual workspace for document processing and OCR management",
   };
 }

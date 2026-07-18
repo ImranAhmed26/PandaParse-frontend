@@ -1,4 +1,4 @@
-# Panda Parse
+# OCRParse
 
 A modern OCR (Optical Character Recognition) dashboard application that extracts structured data from invoices, receipts, and documents.
 

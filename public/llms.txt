@@ -1,0 +1,22 @@
+# OCRParse
+
+> OCRParse is an AI-powered OCR platform that turns invoices, receipts, and business documents into structured JSON/CSV data in seconds. It is built for finance and operations teams that need accurate document data extraction without manual entry.
+
+## What it does
+- Extracts structured data — vendor, invoice number, dates, subtotal, tax, total, and line items — from invoices, receipts, purchase orders, and shipping documents.
+- Accepts PDF, JPEG, PNG, and TIFF files and outputs clean JSON and CSV.
+- Achieves 99%+ accuracy on standard documents and 95%+ on complex layouts, with per-field confidence scores and a built-in review-and-correction interface.
+- Cross-field validation (e.g. subtotal + tax = total) flags likely extraction errors for review.
+- GDPR compliant: data is processed in EU-based data centers and encrypted in transit and at rest.
+- Offers a REST API and webhooks for integration with accounting and ERP systems. A 14-day free trial is available with no credit card required.
+
+## Pages
+- [Home](https://www.ocrparse.com/en): Product overview, features, and FAQ.
+- [Pricing](https://www.ocrparse.com/en/pricing): Plans and pricing.
+- [Contact](https://www.ocrparse.com/en/contact): Get in touch with the team.
+
+## Key facts
+- Name: OCRParse
+- Category: OCR, document data extraction, accounts payable (AP) automation
+- Website: https://www.ocrparse.com
+- Languages: English, Dutch (nl), German (de)

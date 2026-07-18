@@ -2,8 +2,9 @@ import { NavLink } from "@/types/Home/banner";
 import { Upload, History, Settings, BarChart3, Folder, Home } from "lucide-react";
 
 export const metadataConst = {
-  title: "Dev",
-  description: "Add Description",
+  title: "OCRParse — Accurate OCR for invoices, receipts & documents",
+  description:
+    "Transform invoices, receipts, and documents into structured JSON/CSV data in seconds. OCRParse's AI extracts and structures your data with industry-leading accuracy.",
 };
 
 export const navLinkData: NavLink[] = [
@@ -27,7 +28,7 @@ export const navLinkData: NavLink[] = [
 ];
 
 export const brandData = {
-  name: `Panda Parse`,
+  name: `OCRParse`,
   slogan: `. . .`,
   address: `Add Address`,
 };

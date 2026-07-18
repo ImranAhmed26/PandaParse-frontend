@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import AppNavbar from "@/components/Navbar/AppNavbar";
 import { AppSidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/Auth/RouteGuard";
+
+// The authenticated app is private — never index any of it.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function LocaleLayout({ children }: { children: React.ReactNode }) {
   return (

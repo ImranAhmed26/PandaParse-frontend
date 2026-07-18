@@ -6,7 +6,9 @@
   "landing": {
     "banner": {
       "title": "Bouw AI-tools met OCR in enkele minuten",
-      "highlightedWords": ["ocr"],
+      "highlightedWords": [
+        "ocr"
+      ],
       "subTitle": "Transparante Prijzen, Snellere Processen, Lagere Kosten.",
       "description": "Begin vandaag nog met het extraheren van gestructureerde gegevens uit documenten.",
       "button": {
@@ -19,6 +21,24 @@
           "link": "/learn-more"
         }
       }
+    }
+  },
+  "Meta": {
+    "home": {
+      "title": "OCRParse — Nauwkeurige OCR voor facturen, bonnen en documenten",
+      "description": "Zet facturen, bonnen en documenten in seconden om in gestructureerde JSON/CSV-gegevens. Onze AI regelt de complexiteit zodat je financiële team zich kan richten op wat telt."
+    },
+    "about": {
+      "title": "Over ons",
+      "description": "OCRParse zet facturen, bonnen en documenten om in schone, gestructureerde gegevens met AI-gestuurde OCR — gebouwd voor financiële teams die nauwkeurigheid willen zonder handwerk."
+    },
+    "pricing": {
+      "title": "Prijzen",
+      "description": "Eenvoudige, transparante prijzen voor OCRParse. Extraheer op grote schaal gestructureerde gegevens uit facturen en bonnen — betaal alleen voor wat je gebruikt."
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Neem contact op met het OCRParse-team over data-extractie uit documenten, prijzen of integraties. We helpen je graag."
     }
   }
 }
