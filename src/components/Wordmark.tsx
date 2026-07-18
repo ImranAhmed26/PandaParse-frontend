@@ -8,8 +8,8 @@ import React from "react";
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={className}>
-      <span className="font-bold text-brandLight dark:text-brandDark">OCR</span>
-      <span className="font-normal text-gray-700 dark:text-gray-300">Parse</span>
+      <span className="font-extrabold text-brandLight dark:text-brandDark">OCR</span>
+      <span className="font-medium text-gray-700 dark:text-gray-300">Parse</span>
     </span>
   );
 }
