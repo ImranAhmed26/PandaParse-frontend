@@ -25,6 +25,7 @@ jspm_packages/
 .env.*
 .env.local
 .env.production
+!.env.example
 
 # TypeScript
 dist/

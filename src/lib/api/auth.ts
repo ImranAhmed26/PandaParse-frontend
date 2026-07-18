@@ -28,9 +28,14 @@ export interface User {
   companyName?: string;
   role: number; // 0=ADMIN, 1=INTERNAL, 2=USER
   userType: number; // 0=INDIVIDUAL_FREELANCER, 1=COMPANY_USER, 2=COMPANY_OWNER
+  image?: string | null; // profile picture URL (e.g. from Google)
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
 }
 
 export interface RefreshTokenResponse {
@@ -58,6 +63,11 @@ export const authApi = {
     // The forms will handle storing tokens and user data
 
     return response;
+  },
+
+  // Sign in / sign up with a Google ID token (credential from Google Identity Services)
+  googleLogin: async (idToken: string): Promise<ApiResponse<AuthResponse>> => {
+    return api.post<AuthResponse>("/auth/google", { idToken } as GoogleLoginRequest);
   },
 
   // Logout user

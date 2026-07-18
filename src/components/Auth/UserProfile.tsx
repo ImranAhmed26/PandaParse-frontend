@@ -2,6 +2,7 @@
 
 import { useAuthUser } from "@/lib/hooks/useAuth";
 import LogoutButton from "./LogoutButton";
+import UserAvatar from "./UserAvatar";
 
 interface UserProfileProps {
   showLogout?: boolean;
@@ -17,9 +18,7 @@ export default function UserProfile({ showLogout = true, className = "flex items
     <div className={className}>
       <div className="flex items-center space-x-3">
         {/* User Avatar */}
-        <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
-          <span className="text-sm font-medium text-white">{user.name.charAt(0).toUpperCase()}</span>
-        </div>
+        <UserAvatar name={user.name} image={user.image} sizeClassName="h-8 w-8" textClassName="text-sm" />
 
         {/* User Info */}
         <div className="flex flex-col">
@@ -42,9 +41,7 @@ export function UserProfileCompact() {
 
   return (
     <div className="flex items-center space-x-2">
-      <div className="h-6 w-6 rounded-full bg-indigo-500 flex items-center justify-center">
-        <span className="text-xs font-medium text-white">{user.name.charAt(0).toUpperCase()}</span>
-      </div>
+      <UserAvatar name={user.name} image={user.image} sizeClassName="h-6 w-6" textClassName="text-xs" />
       <span className="text-sm text-gray-700 dark:text-gray-300">{user.name}</span>
     </div>
   );

@@ -6,6 +6,8 @@ import AuthInput from "./AuthInput";
 import { useRegisterForm } from "./Hooks/useRegisterForm";
 import { Link } from "@/i18n/navigation";
 import { Wordmark } from "@/components/Wordmark";
+import GoogleAuthButton from "./GoogleAuthButton";
+import AuthDivider from "./AuthDivider";
 
 export default function RegisterForm() {
   const {
@@ -71,6 +73,11 @@ export default function RegisterForm() {
           <AuthButton type="submit" isLoading={isSubmitting} delay={0.5}>
             {isSubmitting ? "Creating Account..." : "Create Account"}
           </AuthButton>
+
+          <MotionFadeIn delay={0.55}>
+            <AuthDivider />
+            <GoogleAuthButton text="signup_with" />
+          </MotionFadeIn>
 
           <MotionFadeIn delay={0.6} className="text-center">
             <span className="text-gray-600">Already have an account? </span>
