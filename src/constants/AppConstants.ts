@@ -2,8 +2,9 @@ import { NavLink } from "@/types/Home/banner";
 import { Upload, History, Settings, BarChart3, Folder, Home } from "lucide-react";
 
 export const metadataConst = {
-  title: "Dev",
-  description: "Add Description",
+  title: "OCRParse",
+  description:
+    "Transform invoices, receipts, and documents into structured data in seconds with OCRParse.",
 };
 
 export const navLinkData: NavLink[] = [
