@@ -20,7 +20,7 @@ export default function RegisterForm() {
     <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
       <MotionFadeIn delay={0.3} className="max-w-md mx-auto w-full">
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-          Create your <span className="text-indigo-500">Panda Parse</span> account
+          Create your <span className="text-indigo-500">OCRParse</span> account
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">

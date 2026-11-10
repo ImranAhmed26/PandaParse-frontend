@@ -11,7 +11,7 @@ interface DocumentEditorRouteProps {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Document Editor | Panda Parse",
+    title: "Document Editor | OCRParse",
     description: "Review and correct extracted document data",
   };
 }
